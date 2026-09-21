@@ -1,0 +1,20 @@
+{
+  "note": "Eligible wallet addresses for the Folks whitelist. Replace these examples with your real list. Addresses are matched case-insensitively, so checksummed or lowercase both work. You can also add per-address tiers/points if you want them surfaced in the result.",
+  "updatedAt": "2026-09-21",
+  "entries": [
+    {
+      "address": "0x1111111111111111111111111111111111111111",
+      "tier": "OG",
+      "points": 5000
+    },
+    {
+      "address": "0x2222222222222222222222222222222222222222",
+      "tier": "Whitelist",
+      "points": 1500
+    },
+    {
+      "address": "0x3333333333333333333333333333333333333333",
+      "tier": "Whitelist"
+    }
+  ]
+}
