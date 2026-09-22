@@ -22,6 +22,37 @@ type Phase = "team" | "folklist" | "public";
 // Folklist opens at a fixed instant; the countdown reads from it.
 const MINT_START = new Date("2026-09-23T16:10:00Z");
 
+function useEthPrice() {
+  const [usd, setUsd] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/eth-price");
+        const data = (await res.json()) as { usd: number | null };
+        if (alive) setUsd(data.usd);
+      } catch {
+        // leave it null; the page shows dollars only
+      }
+    };
+    load();
+    const id = setInterval(load, 60000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  return usd;
+}
+
+// Enough precision to be honest about a sub-dollar fee.
+const eth = (usdAmount: number, rate: number) => {
+  const v = usdAmount / rate;
+  return v < 0.001 ? v.toFixed(6) : v.toFixed(4);
+};
+
 function useCountdown(target: Date) {
   const [left, setLeft] = useState<number | null>(null);
 
@@ -50,6 +81,7 @@ export default function MintPage() {
   const [tookOver, setTookOver] = useState(false);
   const [connected, setConnected] = useState(false);
   const cd = useCountdown(MINT_START);
+  const ethUsd = useEthPrice();
 
   // Demo wallet. Swap for the real allowlist check once the wallet is wired:
   // team is never publicly mintable, public is open to anyone.
@@ -277,6 +309,21 @@ export default function MintPage() {
                 <p className="totalLine">
                   {qty} Folk{qty > 1 ? "s" : ""} = Platform fee + network gas
                 </p>
+                {(() => {
+                  const unit = phase === "public" ? PUBLIC_PRICE : 0;
+                  const due = (unit + PLATFORM_FEE) * qty;
+                  return (
+                    <p className="totalConv">
+                      <strong>${due.toFixed(2)}</strong>
+                      {ethUsd && (
+                        <>
+                          <span className="conv"> ≈ </span>
+                          <strong>{eth(due, ethUsd)} ETH</strong>
+                        </>
+                      )}
+                    </p>
+                  );
+                })()}
               </>
             )}
           </div>
@@ -337,10 +384,37 @@ export default function MintPage() {
           </div>
 
           <footer className="fineprint">
-            <p>Folklist: FREE + ${PLATFORM_FEE.toFixed(2)} platform fee</p>
+            <p>
+              Folklist: FREE + ${PLATFORM_FEE.toFixed(2)} platform fee
+              {ethUsd && (
+                <span className="inEth">
+                  {" "}
+                  ≈ {eth(PLATFORM_FEE, ethUsd)} ETH
+                </span>
+              )}
+            </p>
             <p>
               Public: ${PUBLIC_PRICE.toFixed(2)} + ${PLATFORM_FEE.toFixed(2)}{" "}
               platform fee
+              {ethUsd && (
+                <span className="inEth">
+                  {" "}
+                  ≈ {eth(PUBLIC_PRICE + PLATFORM_FEE, ethUsd)} ETH
+                </span>
+              )}
+            </p>
+            <p className="rate">
+              {ethUsd ? (
+                <>
+                  <span className="rDot" /> ETH ${ethUsd.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  <span className="rNote">· live, updates every 60s</span>
+                </>
+              ) : (
+                <span className="rNote">ETH price unavailable</span>
+              )}
             </p>
           </footer>
         </section>

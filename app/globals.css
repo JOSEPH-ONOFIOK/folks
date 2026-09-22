@@ -635,6 +635,17 @@ h1 {
 
 .totalLine strong { color: var(--fg); font-variant-numeric: tabular-nums; }
 
+.totalConv {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 15px;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.totalConv strong { font-weight: 700; }
+.totalConv .conv { color: var(--muted); font-weight: 400; }
+
 /* schedule */
 .schedule { margin-top: 28px; }
 
@@ -724,6 +735,42 @@ h1 {
   line-height: 1.55;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+.inEth { color: var(--accent); }
+
+.rate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px !important;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--fg) !important;
+  font-weight: 600;
+}
+
+.rDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ok);
+  flex: none;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.rNote {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rDot { animation: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
