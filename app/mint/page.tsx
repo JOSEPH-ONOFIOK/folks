@@ -4,8 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const SUPPLY = 10000;
-const TEAM_RESERVE = 120;
-const FOLKLIST_SUPPLY = 8000;
+const TEAM_RESERVE = 150;
 const PLATFORM_FEE = 0.18;
 const PUBLIC_PRICE = 1.5;
 
@@ -17,16 +16,11 @@ const ART = [
   "/folk-5.jpg",
 ];
 
-type Phase = "folklist" | "public";
-type Tab = "Mint" | "Items" | "Holders" | "Traits" | "Activity";
+// Team mints first, then folklist, then public.
+type Phase = "team" | "folklist" | "public";
 
-const TABS: Tab[] = ["Mint", "Items", "Holders", "Traits", "Activity"];
-
-const usd = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
-
-// Mint opens at a fixed instant; the countdown reads from it.
-const MINT_START = new Date("2026-09-23T09:30:00-07:00");
+// Folklist opens at a fixed instant; the countdown reads from it.
+const MINT_START = new Date("2026-09-23T16:10:00Z");
 
 function useCountdown(target: Date) {
   const [left, setLeft] = useState<number | null>(null);
@@ -49,28 +43,26 @@ function useCountdown(target: Date) {
 }
 
 export default function MintPage() {
-  const [phase, setPhase] = useState<Phase>("folklist");
-  const [tab, setTab] = useState<Tab>("Mint");
+  const [phase, setPhase] = useState<Phase>("team");
   const [qty, setQty] = useState(1);
   const [active, setActive] = useState(0);
   const [hovering, setHovering] = useState(false);
   const [tookOver, setTookOver] = useState(false);
-  const [minted] = useState(0);
+  const [connected, setConnected] = useState(false);
   const cd = useCountdown(MINT_START);
 
   // Cycle the hero art on its own. Hovering pauses it; picking a
   // thumbnail hands control to the viewer for good.
   useEffect(() => {
     if (hovering || tookOver) return;
-    const id = setInterval(
-      () => setActive((i) => (i + 1) % ART.length),
-      1400,
-    );
+    const id = setInterval(() => setActive((i) => (i + 1) % ART.length), 1400);
     return () => clearInterval(id);
   }, [hovering, tookOver]);
 
-  const unitPrice = phase === "folklist" ? 0 : PUBLIC_PRICE;
-  const total = (unitPrice + PLATFORM_FEE) * qty;
+  // Team is fully minted; the rest share one pool of what's left.
+  const minted = phase === "team" ? TEAM_RESERVE : TEAM_RESERVE;
+  const cap = phase === "team" ? TEAM_RESERVE : SUPPLY;
+  const pct = (minted / cap) * 100;
 
   return (
     <div className="mintPage">
@@ -87,85 +79,41 @@ export default function MintPage() {
           <div>
             <h1 className="brandName">FOLKS</h1>
             <div className="brandMeta">
-              <span>BY FOLKS</span>
               <span className="tag">SEP 2026</span>
-              <span className="tag live">MINTING SOON</span>
             </div>
           </div>
         </div>
 
         <div className="countdown">
           <span className="cdLabel">MINTING IN</span>
-          {cd ? (
-            <div className="cdBoxes">
-              {[
-                ["DAYS", cd.days],
-                ["HOURS", cd.hours],
-                ["MINS", cd.mins],
-                ["SECS", cd.secs],
-              ].map(([label, v]) => (
-                <div className="cdBox" key={label as string}>
-                  <b>{String(v).padStart(2, "0")}</b>
-                  <span>{label as string}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="cdBoxes">
-              {["DAYS", "HOURS", "MINS", "SECS"].map((l) => (
-                <div className="cdBox" key={l}>
-                  <b>--</b>
-                  <span>{l}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="cdBoxes">
+            {(cd
+              ? ([
+                  ["DAYS", cd.days],
+                  ["HOURS", cd.hours],
+                  ["MINS", cd.mins],
+                  ["SECS", cd.secs],
+                ] as const)
+              : ([
+                  ["DAYS", null],
+                  ["HOURS", null],
+                  ["MINS", null],
+                  ["SECS", null],
+                ] as const)
+            ).map(([label, v]) => (
+              <div className="cdBox" key={label}>
+                <b>{v === null ? "--" : String(v).padStart(2, "0")}</b>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </header>
 
       <nav className="tabs">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            className={`tab ${tab === t ? "on" : ""}`}
-            onClick={() => setTab(t)}
-            aria-current={tab === t ? "page" : undefined}
-          >
-            {t}
-          </button>
-        ))}
+        <span className="tab on">Mint</span>
       </nav>
 
-      {tab !== "Mint" ? (
-        <main className="panelView">
-          {tab === "Items" ? (
-            <>
-              <p className="viewNote">
-                Preview art · full collection reveals after mint.
-              </p>
-              <div className="itemGrid">
-                {ART.map((src, i) => (
-                  <figure className="item" key={src}>
-                    <Image src={src} alt="" width={400} height={400} />
-                    <figcaption>Folk #{String(i + 1).padStart(4, "0")}</figcaption>
-                  </figure>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="empty">
-              <h2>{tab}</h2>
-              <p>
-                {tab === "Holders"
-                  ? "No holders yet — the collection hasn't minted."
-                  : tab === "Traits"
-                    ? "Trait rarity publishes at reveal."
-                    : "No activity yet. Mint opens September 23."}
-              </p>
-            </div>
-          )}
-        </main>
-      ) : (
       <main className="cols">
         {/* left — artwork */}
         <section className="artCol">
@@ -209,86 +157,108 @@ export default function MintPage() {
         <section className="mintCol">
           <div className="panel">
             <div className="panelHead">
-              <div>
-                <h2 className="panelTitle">
-                  {phase === "folklist" ? "FOLKLIST MINT" : "PUBLIC MINT"}
-                </h2>
-                <p className="panelPrice">
-                  {phase === "folklist" ? "FREE" : "$1.50"}
-                </p>
-              </div>
+              <h2 className="panelTitle">
+                {phase === "team"
+                  ? "TEAM"
+                  : phase === "folklist"
+                    ? "FOLKLIST"
+                    : "PUBLIC"}
+              </h2>
               <span className={`badge ${phase}`}>
-                {phase === "folklist" ? "Folklist" : "Public"}
+                {phase === "team"
+                  ? "Reserved"
+                  : phase === "folklist"
+                    ? "Whitelist"
+                    : "Open"}
               </span>
             </div>
 
-            <dl className="specs">
-              {phase === "folklist" && (
-                <div className="spec">
-                  <dt>Supply</dt>
-                  <dd>10,000</dd>
-                </div>
-              )}
-              <div className="spec">
-                <dt>{phase === "folklist" ? "Mint Price" : "Price"}</dt>
-                <dd className={phase === "folklist" ? "free" : ""}>
-                  {phase === "folklist" ? "FREE" : "$1.50"}
-                </dd>
-              </div>
-              <div className="spec">
-                <dt>Platform Fee</dt>
-                <dd>$0.18 / mint</dd>
-              </div>
-              <div className="spec">
-                <dt>Network</dt>
-                <dd>Robinhood Chain</dd>
-              </div>
-              <div className="spec">
-                <dt>Minted</dt>
-                <dd>
-                  {minted.toLocaleString()} / {SUPPLY.toLocaleString()}
-                </dd>
-              </div>
-            </dl>
-
-            <div className="bar">
-              <span style={{ width: `${(minted / SUPPLY) * 100}%` }} />
-            </div>
-
-            <div className="qtyRow">
-              <button
-                className="qtyBtn"
-                onClick={() => setQty((q) => Math.max(1, q - 1))}
-                disabled={qty <= 1}
-                aria-label="Decrease quantity"
-              >
-                −
-              </button>
-              <span className="qtyValue" aria-live="polite">
-                {qty}
-              </span>
-              <button
-                className="qtyBtn"
-                onClick={() => setQty((q) => Math.min(20, q + 1))}
-                disabled={qty >= 20}
-                aria-label="Increase quantity"
-              >
-                +
-              </button>
-            </div>
-
-            <button className="mintBtn" type="button">
-              CONNECT WALLET
-            </button>
-
-            <p className="totalLine">
-              {qty} Folk{qty > 1 ? "s" : ""} = <strong>{usd(total)}</strong> +
-              network gas
+            <p className="panelNote">
+              {phase === "team"
+                ? "Reserved. Minted by the team, not open to the public."
+                : phase === "folklist"
+                  ? connected
+                    ? "You're eligible. Mint is open."
+                    : "Opens 4:10pm UTC · Connect to check eligibility."
+                  : "Unminted whitelist supply rolls into this phase. Whitelist and public share one pool of the remaining supply."}
             </p>
+
+            {/* progress */}
+            <div className="progress">
+              <div className="progHead">
+                <span>MINTED</span>
+                <b>
+                  {minted.toLocaleString()} / {cap.toLocaleString()}
+                </b>
+              </div>
+              <div className="track">
+                <span className="fill" style={{ width: `${pct}%` }} />
+                <i className="tick t25" />
+                <i className="tick t50" />
+                <i className="tick t75" />
+              </div>
+              <div className="ticks">
+                <span>25%</span>
+                <span>50%</span>
+                <span>75%</span>
+              </div>
+            </div>
+
+            {phase !== "team" && (
+              <>
+                <div className="qtyRow">
+                  <button
+                    className="qtyBtn"
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    disabled={qty <= 1}
+                    aria-label="Decrease quantity"
+                  >
+                    −
+                  </button>
+                  <span className="qtyValue" aria-live="polite">
+                    {qty}
+                  </span>
+                  <button
+                    className="qtyBtn"
+                    onClick={() => setQty((q) => q + 1)}
+                    aria-label="Increase quantity"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <button
+                  className="mintBtn"
+                  type="button"
+                  onClick={() => setConnected(true)}
+                >
+                  {connected ? "MINT" : "CONNECT WALLET"}
+                </button>
+
+                <p className="totalLine">
+                  {qty} Folk{qty > 1 ? "s" : ""} = Platform fee + network gas
+                </p>
+              </>
+            )}
           </div>
 
           <div className="schedule">
             <h3 className="schedTitle">MINT SCHEDULE</h3>
+
+            <button
+              className={`sched ${phase === "team" ? "on" : ""}`}
+              onClick={() => setPhase("team")}
+            >
+              <span className="dot" />
+              <span className="schedBody">
+                <span className="schedName">
+                  TEAM <span className="pill">Reserved</span>
+                </span>
+                <span className="schedWhen">
+                  Minted by the team, not open to the public
+                </span>
+              </span>
+            </button>
 
             <button
               className={`sched ${phase === "folklist" ? "on" : ""}`}
@@ -300,13 +270,10 @@ export default function MintPage() {
               <span className="dot" />
               <span className="schedBody">
                 <span className="schedName">
-                  FOLKLIST <span className="pill">Allowlist</span>
+                  FOLKLIST <span className="pill">Whitelist</span>
                 </span>
                 <span className="schedWhen">
-                  Starts: September 23 at 9:30 AM PDT
-                </span>
-                <span className="schedCost">
-                  FREE + $0.18 fee · {FOLKLIST_SUPPLY.toLocaleString()} SUPPLY
+                  Opens 4:10pm UTC · Connect to check eligibility
                 </span>
               </span>
             </button>
@@ -324,36 +291,21 @@ export default function MintPage() {
                   PUBLIC <span className="pill">Open</span>
                 </span>
                 <span className="schedWhen">
-                  Starts: after Folklist ends
+                  Whitelist and public share one pool of the remaining supply
                 </span>
-                <span className="schedCost">$1.50 + $0.18 fee · LIMIT 20</span>
               </span>
             </button>
-
-            <div className="sched static">
-              <span className="dot" />
-              <span className="schedBody">
-                <span className="schedName">
-                  TEAM RESERVE <span className="pill">Reserved</span>
-                </span>
-                <span className="schedWhen">Held back from supply</span>
-                <span className="schedCost">{TEAM_RESERVE} FOLKS</span>
-              </span>
-            </div>
           </div>
 
           <footer className="fineprint">
-            <p>No creator royalties.</p>
-            <p>Secondary trading on OpenSea.</p>
-            <p>Folklist: FREE + $0.18 platform fee</p>
-            <p>Public: $1.50 + $0.18 platform fee</p>
-            <p>Secondary: OpenSea, 0% creator royalty</p>
-            <p>Mint: thefolks.xyz/mint</p>
-            <p>Chain: Robinhood · Supply: 10,000 · Team reserve: 120</p>
+            <p>Folklist: FREE + ${PLATFORM_FEE.toFixed(2)} platform fee</p>
+            <p>
+              Public: ${PUBLIC_PRICE.toFixed(2)} + ${PLATFORM_FEE.toFixed(2)}{" "}
+              platform fee
+            </p>
           </footer>
         </section>
       </main>
-      )}
     </div>
   );
 }
