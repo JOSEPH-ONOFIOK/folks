@@ -82,6 +82,8 @@ export default function MintPage() {
   const [connected, setConnected] = useState(false);
   const cd = useCountdown(MINT_START);
   const ethUsd = useEthPrice();
+  // Prices read in ETH first; the swap button flips to USD.
+  const [inEth, setInEth] = useState(true);
 
   // Demo wallet. Swap for the real allowlist check once the wallet is wired:
   // team is never publicly mintable, public is open to anyone.
@@ -312,14 +314,27 @@ export default function MintPage() {
                 {(() => {
                   const unit = phase === "public" ? PUBLIC_PRICE : 0;
                   const due = (unit + PLATFORM_FEE) * qty;
+                  const showEth = inEth && ethUsd;
+                  const pending = inEth && !ethUsd;
                   return (
                     <p className="totalConv">
-                      <strong>${due.toFixed(2)}</strong>
+                      <strong>
+                        {showEth
+                          ? `${eth(due, ethUsd)} ETH`
+                          : pending
+                            ? "… ETH"
+                            : `$${due.toFixed(2)}`}
+                      </strong>
                       {ethUsd && (
-                        <>
-                          <span className="conv"> ≈ </span>
-                          <strong>{eth(due, ethUsd)} ETH</strong>
-                        </>
+                        <button
+                          className="swap"
+                          type="button"
+                          onClick={() => setInEth((v) => !v)}
+                          title={`Show in ${inEth ? "USD" : "ETH"}`}
+                          aria-label={`Convert to ${inEth ? "USD" : "ETH"}`}
+                        >
+                          ⇄
+                        </button>
                       )}
                     </p>
                   );
@@ -383,42 +398,63 @@ export default function MintPage() {
             </button>
           </div>
 
-          <footer className="fineprint">
+          <div className="fineprint">
             <p>
-              Folklist: FREE + ${PLATFORM_FEE.toFixed(2)} platform fee
-              {ethUsd && (
-                <span className="inEth">
-                  {" "}
-                  ≈ {eth(PLATFORM_FEE, ethUsd)} ETH
-                </span>
-              )}
-            </p>
-            <p>
-              Public: ${PUBLIC_PRICE.toFixed(2)} + ${PLATFORM_FEE.toFixed(2)}{" "}
+              Folklist: FREE +{" "}
+              {inEth
+                ? ethUsd
+                  ? `${eth(PLATFORM_FEE, ethUsd)} ETH`
+                  : "… ETH"
+                : `$${PLATFORM_FEE.toFixed(2)}`}{" "}
               platform fee
-              {ethUsd && (
-                <span className="inEth">
-                  {" "}
-                  ≈ {eth(PUBLIC_PRICE + PLATFORM_FEE, ethUsd)} ETH
-                </span>
-              )}
             </p>
-            <p className="rate">
-              {ethUsd ? (
-                <>
-                  <span className="rDot" /> ETH ${ethUsd.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  <span className="rNote">· live, updates every 60s</span>
-                </>
-              ) : (
-                <span className="rNote">ETH price unavailable</span>
-              )}
+            <p>
+              Public:{" "}
+              {inEth
+                ? ethUsd
+                  ? `${eth(PUBLIC_PRICE, ethUsd)} ETH + ${eth(PLATFORM_FEE, ethUsd)} ETH`
+                  : "… ETH + … ETH"
+                : `$${PUBLIC_PRICE.toFixed(2)} + $${PLATFORM_FEE.toFixed(2)}`}{" "}
+              platform fee
             </p>
-          </footer>
+          </div>
         </section>
       </main>
+
+      <footer className="pageFoot">
+        <div className="footInner">
+          <div className="footBrand">
+            <Image
+              src="/folk.jpg"
+              alt=""
+              width={28}
+              height={28}
+              className="footMark"
+            />
+            <span>FOLKS</span>
+          </div>
+
+          <p className="footRate">
+            {ethUsd ? (
+              <>
+                <span className="rDot" />
+                ETH $
+                {ethUsd.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+                <span className="rNote"> · live, updates every 60s</span>
+              </>
+            ) : (
+              <span className="rNote">ETH price unavailable</span>
+            )}
+          </p>
+
+          <p className="footNote">
+            No creator royalties · Secondary on OpenSea · Robinhood Chain
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
