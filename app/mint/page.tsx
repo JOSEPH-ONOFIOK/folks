@@ -51,6 +51,13 @@ export default function MintPage() {
   const [connected, setConnected] = useState(false);
   const cd = useCountdown(MINT_START);
 
+  // Demo wallet. Swap for the real allowlist check once the wallet is wired:
+  // team is never publicly mintable, public is open to anyone.
+  const eligible =
+    phase === "public" ? true : phase === "folklist" ? true : false;
+
+  const wallet = "0x8F2c…4A19";
+
   // Cycle the hero art on its own. Hovering pauses it; picking a
   // thumbnail hands control to the viewer for good.
   useEffect(() => {
@@ -84,6 +91,22 @@ export default function MintPage() {
           </div>
         </div>
 
+        <div className="headRight">
+          <button
+            className={`connectBtn ${connected ? "on" : ""}`}
+            type="button"
+            onClick={() => setConnected((c) => !c)}
+          >
+            {connected ? (
+              <>
+                <span className="wDot" />
+                {wallet}
+              </>
+            ) : (
+              "CONNECT WALLET"
+            )}
+          </button>
+
         <div className="countdown">
           <span className="cdLabel">MINTING IN</span>
           <div className="cdBoxes">
@@ -107,6 +130,7 @@ export default function MintPage() {
               </div>
             ))}
           </div>
+        </div>
         </div>
       </header>
 
@@ -177,9 +201,11 @@ export default function MintPage() {
               {phase === "team"
                 ? "Reserved. Minted by the team, not open to the public."
                 : phase === "folklist"
-                  ? connected
-                    ? "You're eligible. Mint is open."
-                    : "Opens 4:10pm UTC · Connect to check eligibility."
+                  ? !connected
+                    ? "Opens 4:10pm UTC · Connect to check eligibility."
+                    : eligible
+                      ? "You're eligible. Mint is open."
+                      : "This wallet isn't on the folklist. You can mint in the public phase."
                   : "Unminted whitelist supply rolls into this phase. Whitelist and public share one pool of the remaining supply."}
             </p>
 
@@ -227,13 +253,26 @@ export default function MintPage() {
                   </button>
                 </div>
 
-                <button
-                  className="mintBtn"
-                  type="button"
-                  onClick={() => setConnected(true)}
-                >
-                  {connected ? "MINT" : "CONNECT WALLET"}
-                </button>
+                <div className="actionRow">
+                  <button
+                    className="mintBtn"
+                    type="button"
+                    disabled={connected && !eligible}
+                    onClick={() => setConnected(true)}
+                  >
+                    {!connected
+                      ? "CONNECT WALLET"
+                      : eligible
+                        ? "MINT"
+                        : "NOT ELIGIBLE"}
+                  </button>
+
+                  {connected && (
+                    <span className={`elig ${eligible ? "yes" : "no"}`}>
+                      {eligible ? "✓ Eligible" : "Not eligible"}
+                    </span>
+                  )}
+                </div>
 
                 <p className="totalLine">
                   {qty} Folk{qty > 1 ? "s" : ""} = Platform fee + network gas
