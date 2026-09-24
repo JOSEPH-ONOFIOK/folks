@@ -238,6 +238,31 @@ h1 {
   flex: none;
 }
 
+.wDot.no { background: var(--no); }
+
+.connectForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addrInput {
+  width: 210px;
+  background: #0e0e10;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  outline: none;
+}
+
+.addrInput:focus { border-color: var(--accent); }
+.addrInput::placeholder { color: #55555c; font-family: inherit; }
+
+.connectBtn:disabled { opacity: 0.6; cursor: default; }
+
 /* countdown */
 .countdown { display: flex; align-items: center; gap: 14px; }
 

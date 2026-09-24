@@ -2,3 +2,7 @@ node_modules
 .next
 *.tsbuildinfo
 next-env.d.ts
+
+# Raw allowlist exports. data/folklist.json is generated from these and is
+# what the app reads; the CSVs stay local to avoid committing them twice.
+eligible/

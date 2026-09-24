@@ -1,10 +1,4 @@
-import raw from "@/data/allowlist.json";
-
-export type AllowlistEntry = {
-  address: string;
-  tier?: string;
-  points?: number;
-};
+import addresses from "@/data/folklist.json";
 
 export type CheckResult =
   | { status: "eligible"; address: string; tier: string | null; points: number | null }
@@ -25,16 +19,9 @@ function normalize(address: string): string {
   return address.trim().toLowerCase();
 }
 
-// Build the lookup once at module load rather than scanning the array per request.
-const index: Map<string, AllowlistEntry> = (() => {
-  const m = new Map<string, AllowlistEntry>();
-  const entries = (raw.entries ?? []) as AllowlistEntry[];
-  for (const e of entries) {
-    if (!e?.address || !isValidEvmAddress(e.address)) continue;
-    m.set(normalize(e.address), e);
-  }
-  return m;
-})();
+// A Set of ~184k strings built once at module load. Lookups are O(1), so a
+// busy mint doesn't scan the list per request.
+const index: Set<string> = new Set(addresses as string[]);
 
 export function eligibleCount(): number {
   return index.size;
@@ -49,14 +36,8 @@ export function checkAddress(input: string): CheckResult {
     return { status: "invalid", reason: "That doesn't look like a valid EVM address (0x + 40 hex characters)." };
   }
 
-  const hit = index.get(normalize(trimmed));
-  if (!hit) {
+  if (!index.has(normalize(trimmed))) {
     return { status: "not_eligible", address: trimmed };
   }
-  return {
-    status: "eligible",
-    address: trimmed,
-    tier: hit.tier ?? null,
-    points: typeof hit.points === "number" ? hit.points : null,
-  };
+  return { status: "eligible", address: trimmed, tier: "Folklist", points: null };
 }

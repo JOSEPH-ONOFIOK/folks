@@ -80,17 +80,41 @@ export default function MintPage() {
   const [hovering, setHovering] = useState(false);
   const [tookOver, setTookOver] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [address, setAddress] = useState("");
+  const [listed, setListed] = useState<boolean | null>(null);
+  const [checking, setChecking] = useState(false);
   const cd = useCountdown(MINT_START);
   const ethUsd = useEthPrice();
   // Prices read in ETH first; the swap button flips to USD.
   const [inEth, setInEth] = useState(true);
 
-  // Demo wallet. Swap for the real allowlist check once the wallet is wired:
-  // team is never publicly mintable, public is open to anyone.
+  // Folklist is gated by the allowlist; public is open to anyone; team
+  // never mints from this page.
   const eligible =
-    phase === "public" ? true : phase === "folklist" ? true : false;
+    phase === "public" ? true : phase === "folklist" ? listed === true : false;
 
-  const wallet = "0x8F2c…4A19";
+  const short = (a: string) =>
+    a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
+
+  // Ask the server whether this wallet is on the folklist. The list itself
+  // stays server-side; only the verdict for this one address comes back.
+  async function check(addr: string) {
+    setChecking(true);
+    try {
+      const res = await fetch("/api/check", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ address: addr }),
+      });
+      const data = (await res.json()) as { status: string };
+      setListed(data.status === "eligible");
+      setConnected(true);
+    } catch {
+      setListed(null);
+    } finally {
+      setChecking(false);
+    }
+  }
 
   // Cycle the hero art on its own. Hovering pauses it; picking a
   // thumbnail hands control to the viewer for good.
@@ -126,20 +150,42 @@ export default function MintPage() {
         </div>
 
         <div className="headRight">
-          <button
-            className={`connectBtn ${connected ? "on" : ""}`}
-            type="button"
-            onClick={() => setConnected((c) => !c)}
-          >
-            {connected ? (
-              <>
-                <span className="wDot" />
-                {wallet}
-              </>
-            ) : (
-              "CONNECT WALLET"
-            )}
-          </button>
+          {connected ? (
+            <button
+              className="connectBtn on"
+              type="button"
+              onClick={() => {
+                setConnected(false);
+                setListed(null);
+                setAddress("");
+              }}
+              title="Disconnect"
+            >
+              <span className={`wDot ${listed ? "ok" : "no"}`} />
+              {short(address)}
+            </button>
+          ) : (
+            <form
+              className="connectForm"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (address.trim()) check(address.trim());
+              }}
+            >
+              <input
+                className="addrInput"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Paste wallet address"
+                spellCheck={false}
+                autoComplete="off"
+                aria-label="Wallet address"
+              />
+              <button className="connectBtn" type="submit" disabled={checking}>
+                {checking ? "CHECKING…" : "CONNECT WALLET"}
+              </button>
+            </form>
+          )}
 
         <div className="countdown">
           <span className="cdLabel">MINTING IN</span>
@@ -292,7 +338,13 @@ export default function MintPage() {
                     className="mintBtn"
                     type="button"
                     disabled={connected && !eligible}
-                    onClick={() => setConnected(true)}
+                    onClick={() => {
+                      if (!connected) {
+                        document
+                          .querySelector<HTMLInputElement>(".addrInput")
+                          ?.focus();
+                      }
+                    }}
                   >
                     {!connected
                       ? "CONNECT WALLET"

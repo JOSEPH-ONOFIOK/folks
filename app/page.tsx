@@ -89,7 +89,7 @@ export default function Home() {
 
         {result?.status === "invalid" && <div className="msg err">{result.reason}</div>}
 
-        <p className="foot">© 2026 Folks · list checked server-side</p>
+        <p className="foot">© 2026 Folks</p>
       </div>
     </main>
   );
