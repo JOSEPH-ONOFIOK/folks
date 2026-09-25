@@ -155,14 +155,15 @@ contract Folks is ERC721A, Ownable, ReentrancyGuard {
         if (!ok) revert WithdrawFailed();
     }
 
-    /// @notice Team allocation, mintable by the owner before or during the sale.
-    function teamMint(address to, uint256 quantity) external onlyOwner {
-        if (quantity == 0 || to == address(0)) revert BadInput();
+    /// @notice Team allocation. Always mints to the owner, so the reserve
+    ///         cannot be sent anywhere by a mistyped address.
+    function teamMint(uint256 quantity) external onlyOwner {
+        if (quantity == 0) revert BadInput();
         if (teamMinted + quantity > TEAM_RESERVE) revert TeamMintDone();
         if (_totalMinted() + quantity > MAX_SUPPLY) revert SoldOut();
 
         teamMinted += quantity;
-        _mint(to, quantity);
+        _mint(owner(), quantity);
     }
 
     // ----------------------------------------------------------------- admin

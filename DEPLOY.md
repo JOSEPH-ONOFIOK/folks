@@ -106,10 +106,11 @@ panel read-only.
 
 Then:
 
-1. **Team mint** — 150 to the team wallet. Do this before the sale opens.
-2. **Sale time** — set folklist to **6:00pm WAT (17:00 UTC)**. Public opens
-   automatically an hour later at 7pm. Team is expected at 5:30pm, so mint
-   the team allocation before then.
+1. **Team mint** — 150 Folks. They always go to the owner wallet; there is
+   no address to mistype. Do this before folklist opens.
+2. **Sale time** — set folklist to **6:30pm WAT (17:30 UTC)**. Public opens
+   automatically an hour later at 7:30pm. Mint the team allocation at 6pm,
+   before folklist opens.
 3. **Prices** — folklist 0, public as agreed.
 4. **Platform fee** — the per-mint fee and where it goes.
 

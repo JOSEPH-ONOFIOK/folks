@@ -26,7 +26,7 @@ async function reverts(p,m){try{await p;fail++;console.log("  FAIL",m,"(did not 
   ok(await c.transfersLocked()===true,"trading is locked by default");
 
   console.log("\n-- the sale still runs --");
-  await (await c.teamMint(await owner.getAddress(),10)).wait();
+  await (await c.teamMint(10)).wait();
   ok(await c.balanceOf(await owner.getAddress())===10n,"team mint works while locked");
 
   const now=(await p.getBlock("latest")).timestamp;

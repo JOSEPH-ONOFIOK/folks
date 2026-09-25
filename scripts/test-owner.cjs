@@ -26,7 +26,7 @@ async function reverts(p,m){try{await p;fail++;console.log("  FAIL",m,"(did not 
   await reverts(c.openTransfers(),"deployer cannot open trading");
   await reverts(c.setPrices(1,2),"deployer cannot change prices");
   await reverts(c.setFolklistStart(1),"deployer cannot change the schedule");
-  await reverts(c.teamMint(DEPLOYER,1),"deployer cannot team mint");
+  await reverts(c.teamMint(1),"deployer cannot team mint");
   await reverts(c.withdraw(DEPLOYER),"deployer cannot withdraw");
 
   console.log("\n-- the owner does --");
@@ -37,8 +37,11 @@ async function reverts(p,m){try{await p;fail++;console.log("  FAIL",m,"(did not 
   await (await asOwner.setPrices(0,ethers.parseEther("0.02"))).wait();
   ok(await c.publicPrice()===ethers.parseEther("0.02"),"owner changed the price");
 
-  await (await asOwner.teamMint(OWNER,5)).wait();
+  await (await asOwner.teamMint(5)).wait();
   ok(await c.balanceOf(OWNER)===5n,"owner team minted");
+  ok(await c.balanceOf(DEPLOYER)===0n,"the reserve cannot land anywhere but the owner");
+  ok(c.interface.getFunction("teamMint").inputs.length===1,
+     "teamMint takes only a quantity, so there is no address to mistype");
 
   ok(await c.transfersLocked()===true,"trading still locked");
   await (await asOwner.openTransfers()).wait();

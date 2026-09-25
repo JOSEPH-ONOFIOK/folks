@@ -12,7 +12,7 @@ const root=require(path.join(__dirname,"..","data","folklist-root.json")).root;
   const now=(await p.getBlock("latest")).timestamp;
   // Open folklist right now so the page lands in phase 1.
   await (await c.setFolklistStart(now+2)).wait();
-  await (await c.teamMint(await owner.getAddress(),150)).wait();
+  await (await c.teamMint(150)).wait();
   await p.send("evm_setNextBlockTimestamp",[now+5]); await p.send("evm_mine",[]);
   console.log(await c.getAddress());
 })();

@@ -65,9 +65,10 @@ const THUMBS = 5;
 type Phase = "team" | "folklist" | "public";
 
 // Times are WAT, which is UTC+1 year-round, so no DST to account for.
-// Team 5:30pm, folklist 6pm, and the contract opens public an hour later.
-const TEAM_START = new Date("2026-09-25T16:30:00Z"); // 5:30pm WAT
-const MINT_START = new Date("2026-09-25T17:00:00Z"); // 6:00pm WAT
+// Team 6pm, folklist 6:30pm, and the contract opens public an hour after
+// folklist at 7:30pm.
+const TEAM_START = new Date("2026-09-25T17:00:00Z"); // 6:00pm WAT
+const MINT_START = new Date("2026-09-25T17:30:00Z"); // 6:30pm WAT
 
 function useEthPrice() {
   const [usd, setUsd] = useState<number | null>(null);
@@ -120,6 +121,20 @@ function useCountdown(target: Date) {
   };
 }
 
+type Left = { days: number; hours: number; mins: number; secs: number } | null;
+
+/// Compact "2h 14m" style countdown for a schedule row. Returns null once the
+/// phase is open, so the row simply reads as live.
+function rowTime(cd: Left): string | null {
+  if (!cd) return null;
+  const { days, hours, mins, secs } = cd;
+  if (days + hours + mins + secs === 0) return null;
+  if (days > 0) return `in ${days}d ${hours}h`;
+  if (hours > 0) return `in ${hours}h ${mins}m`;
+  if (mins > 0) return `in ${mins}m ${secs}s`;
+  return `in ${secs}s`;
+}
+
 export default function MintPage() {
   const [phase, setPhase] = useState<Phase>("team");
   const [qty, setQty] = useState(1);
@@ -159,8 +174,16 @@ export default function MintPage() {
   const teamAt = live?.folklistStart
     ? new Date((live.folklistStart - 1800) * 1000)
     : TEAM_START;
+  // Public follows folklist by the contract's fixed hour.
+  const publicAt = new Date(folklistAt.getTime() + 3600_000);
   const startAt = Date.now() < teamAt.getTime() ? teamAt : folklistAt;
   const cd = useCountdown(startAt);
+
+  // Each row counts to its own opening, so nobody has to work out when
+  // their phase starts from a single timer.
+  const cdTeam = useCountdown(teamAt);
+  const cdFolklist = useCountdown(folklistAt);
+  const cdPublic = useCountdown(publicAt);
   const ethUsd = useEthPrice();
   // Prices read in ETH first; the swap button flips to USD.
   const [inEth, setInEth] = useState(true);
@@ -632,10 +655,10 @@ export default function MintPage() {
 
             <p className="panelNote">
               {phase === "team"
-                ? "Opens 5:30pm WAT. Reserved for the team, not open to the public."
+                ? "Opens 6pm WAT. Reserved for the team, not open to the public."
                 : phase === "folklist"
                   ? !connected
-                    ? "Opens 6pm WAT · Connect to check eligibility."
+                    ? "Opens 6:30pm WAT · Connect to check eligibility."
                     : eligible
                       ? "You're eligible. Mint is open."
                       : "This wallet isn't on the folklist. You can mint in the public phase."
@@ -828,7 +851,10 @@ export default function MintPage() {
                   TEAM <span className="pill">Reserved</span>
                 </span>
                 <span className="schedWhen">
-                  5:30pm WAT · minted by the team, not open to the public
+                  6pm WAT · minted by the team, not open to the public
+                </span>
+                <span className="schedTimer">
+                  {rowTime(cdTeam) ?? "live"}
                 </span>
               </span>
               <span className="schedCost">FREE</span>
@@ -853,7 +879,10 @@ export default function MintPage() {
                   )}
                 </span>
                 <span className="schedWhen">
-                  Opens 6pm WAT · Connect to check eligibility
+                  Opens 6:30pm WAT · Connect to check eligibility
+                </span>
+                <span className="schedTimer">
+                  {rowTime(cdFolklist) ?? "live"}
                 </span>
               </span>
               <span className="schedCost">FREE + gas</span>
@@ -876,7 +905,10 @@ export default function MintPage() {
                   )}
                 </span>
                 <span className="schedWhen">
-                  7pm WAT · shares one pool with unminted whitelist supply
+                  7:30pm WAT · shares one pool with unminted whitelist supply
+                </span>
+                <span className="schedTimer">
+                  {rowTime(cdPublic) ?? "live"}
                 </span>
               </span>
               <span className="schedCost">

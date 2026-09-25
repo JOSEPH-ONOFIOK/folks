@@ -719,7 +719,7 @@ h1 {
   grid-template-columns: auto 1fr auto;
   grid-template-areas:
     "dot name cost"
-    "dot when when";
+    "dot when timer";
   align-items: center;
   column-gap: 12px;
   row-gap: 3px;
@@ -778,6 +778,18 @@ h1 {
   font-size: 12px;
   color: var(--muted);
 }
+
+.schedTimer {
+  grid-area: timer;
+  justify-self: end;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+  padding-left: 10px;
+}
+
+.sched.on .schedTimer { color: var(--accent); }
 
 .schedCost {
   grid-area: cost;

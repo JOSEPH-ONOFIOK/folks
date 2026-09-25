@@ -33,7 +33,7 @@ const ABI = [
   "function setPrices(uint256,uint256)",
   "function setPlatformFee(uint256,address)",
   "function setFolklistRoot(bytes32)",
-  "function teamMint(address,uint256)",
+  "function teamMint(uint256)",
   "function withdraw(address)",
 ];
 
@@ -71,7 +71,6 @@ export default function AdminPage() {
   const [rootInput, setRootInput] = useState("");
   const [csvName, setCsvName] = useState("");
   const [csvCount, setCsvCount] = useState(0);
-  const [teamTo, setTeamTo] = useState("");
   const [teamQty, setTeamQty] = useState("");
 
   const isOwner =
@@ -389,11 +388,10 @@ export default function AdminPage() {
 
           <section className="aCard">
             <h2 className="aTitle">Team mint</h2>
+            <p className="aHint">
+              Mints to the owner wallet. 150 reserved in total.
+            </p>
             <div className="aGrid">
-              <label>
-                <span>To</span>
-                <input className="aInput mono" value={teamTo} onChange={(e) => setTeamTo(e.target.value)} placeholder="0x…" />
-              </label>
               <label>
                 <span>Quantity</span>
                 <input className="aInput" value={teamQty} onChange={(e) => setTeamQty(e.target.value)} placeholder="150" />
@@ -404,8 +402,8 @@ export default function AdminPage() {
               disabled={!isOwner || busy !== null}
               onClick={() =>
                 send("Team mint", (c) =>
-                  (c as never as { teamMint: (a: string, q: bigint) => Promise<{ wait: () => Promise<unknown> }> })
-                    .teamMint(teamTo, BigInt(teamQty || "0")),
+                  (c as never as { teamMint: (q: bigint) => Promise<{ wait: () => Promise<unknown> }> })
+                    .teamMint(BigInt(teamQty || "0")),
                 )
               }
             >

@@ -46,10 +46,10 @@ async function reverts(p, m) {
     "folklist mint blocked when unscheduled");
 
   console.log("\n-- team mint --");
-  await (await c.teamMint(await owner.getAddress(), 150)).wait();
+  await (await c.teamMint(150)).wait();
   ok(await c.teamMinted() === 150n, "team minted 150");
-  await reverts(c.teamMint(await owner.getAddress(), 1), "team cannot exceed 150 reserve");
-  await reverts(c.connect(alice).teamMint(await alice.getAddress(), 1), "non-owner cannot team mint");
+  await reverts(c.teamMint(1), "team cannot exceed 150 reserve");
+  await reverts(c.connect(alice).teamMint(1), "non-owner cannot team mint");
 
   console.log("\n-- schedule --");
   const now = (await provider.getBlock("latest")).timestamp;

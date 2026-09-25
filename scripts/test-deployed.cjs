@@ -23,7 +23,7 @@ const ok=(c,m)=>{c?(pass++,console.log("  PASS",m)):(fail++,console.log("  FAIL"
   ok(await c.phase()===0n,"sale not open until scheduled");
 
   console.log("\n-- team mint (5:30pm) --");
-  await (await c.teamMint(await owner.getAddress(),150)).wait();
+  await (await c.teamMint(150)).wait();
   ok(await c.teamMinted()===150n,"team minted 150");
 
   console.log("\n-- schedule 6pm, public follows at 7pm --");
