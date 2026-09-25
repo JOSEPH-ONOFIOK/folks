@@ -8,12 +8,31 @@ and a funded deployer key.
 
 | | |
 |---|---|
-| RPC URL | Robinhood Chain endpoint |
+| RPC URL | see the network table below |
 | Deployer key | a private key with gas on that chain |
 | Fee recipient | optional — leave blank and both the fee and the proceeds go to the deployer |
 | Owner address | defaults to `0x9EC2C380297945e5db978319fCD6155cfB384BAB` |
 
 Deployment costs roughly **1,897,338 gas** — about 0.0057 ETH at 3 gwei.
+
+## Network
+
+Verified against docs.robinhood.com/chain/connecting and by calling both
+endpoints. Robinhood Chain is an Arbitrum Orbit L2, fully EVM-compatible.
+
+| | Mainnet | Testnet |
+|---|---|---|
+| Chain ID | `4663` | `46630` |
+| RPC | `https://rpc.mainnet.chain.robinhood.com` | `https://rpc.testnet.chain.robinhood.com` |
+| Explorer | `https://robinhoodchain.blockscout.com` | `https://explorer.testnet.chain.robinhood.com` |
+| Currency | ETH | ETH |
+
+**Deploy to testnet first.** Same code, same commands, and a mistake costs
+nothing.
+
+Robinhood call the public RPCs "rate-limited and not recommended for
+production use". They are fine for deploying, but point the site at an
+Alchemy endpoint before the mint or a busy sale will start failing reads.
 
 ## 2. Set the environment
 
