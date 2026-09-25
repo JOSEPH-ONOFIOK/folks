@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 
 type Result =
@@ -72,6 +73,9 @@ export default function Home() {
           <div className="msg ok">
             <div className="big">✓ Eligible</div>
             <div className="mono">{result.address}</div>
+            <Link className="toMint" href="/mint">
+              Go to mint →
+            </Link>
             <div className="meta">
               {result.tier && <span className="pill">{result.tier}</span>}
               {result.points != null && <span className="pill">{result.points.toLocaleString()} pts</span>}
@@ -83,13 +87,21 @@ export default function Home() {
           <div className="msg no">
             <div className="big">Not on the list</div>
             <div className="mono">{result.address}</div>
-            <p className="hint">This address isn&apos;t in the current allowlist.</p>
+            <p className="hint">
+              This address isn&apos;t in the current allowlist. You can still
+              mint in the public phase.
+            </p>
+            <Link className="toMint" href="/mint">
+              Go to mint →
+            </Link>
           </div>
         )}
 
         {result?.status === "invalid" && <div className="msg err">{result.reason}</div>}
 
-        <p className="foot">© 2026 Folks</p>
+        <p className="foot">
+          <Link href="/mint">Mint</Link>
+        </p>
       </div>
     </main>
   );

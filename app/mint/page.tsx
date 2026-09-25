@@ -10,7 +10,11 @@ import {
   hasWallet,
   isMobile,
   metamaskDeepLink,
+  onWallets,
+  startDiscovery,
   switchChain,
+  wallets as listWallets,
+  type WalletInfo,
 } from "@/lib/wallet";
 import {
   ABI,
@@ -108,6 +112,8 @@ export default function MintPage() {
   const [walletError, setWalletError] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
   const [proof, setProof] = useState<string[] | null>(null);
+  const [choices, setChoices] = useState<WalletInfo[]>([]);
+  const [picking, setPicking] = useState(false);
 
   // Live contract state. Null until the first read lands.
   const [live, setLive] = useState<{
@@ -183,9 +189,13 @@ export default function MintPage() {
       return;
     }
 
+    // More than one wallet installed: ask which, rather than guessing and
+    // opening the wrong one.
+    if (choices.length > 1) { setPicking(true); return; }
+
     setChecking(true);
     try {
-      const addr = await connectWallet();
+      const addr = await connectWallet(choices[0]?.provider);
       if (addr) adopt(addr);
       else setWalletError("No account returned. Unlock your wallet and try again.");
     } catch (err) {
@@ -241,12 +251,35 @@ export default function MintPage() {
     }
   }
 
+  async function pick(w: WalletInfo) {
+    setPicking(false);
+    setChecking(true);
+    setWalletError(null);
+    try {
+      const addr = await connectWallet(w.provider);
+      if (addr) adopt(addr);
+      else setWalletError("No account returned. Unlock your wallet and try again.");
+    } catch (err) {
+      const code = (err as { code?: number })?.code;
+      setWalletError(code === 4001 ? null : "Could not connect. Try again.");
+    } finally {
+      setChecking(false);
+    }
+  }
+
   function disconnect() {
     setConnected(false);
     setListed(null);
     setAddress("");
     setWalletError(null);
   }
+
+  // Let every installed wallet announce itself before we offer a choice.
+  useEffect(() => {
+    startDiscovery();
+    setChoices(listWallets());
+    return onWallets(setChoices);
+  }, []);
 
   // Restore an already-authorised session, and follow the wallet if the
   // visitor switches or locks their account.
@@ -282,8 +315,15 @@ export default function MintPage() {
   const [pinned, setPinned] = useState(false);
   useEffect(() => {
     if (!live || pinned) return;
-    setPhase(live.phase === 2 ? "public" : live.phase === 1 ? "folklist" : "team");
-  }, [live, pinned]);
+    const onChain = live.phase === 2 ? "public" : live.phase === 1 ? "folklist" : "team";
+    // During folklist, a wallet that is not on the list can only mint later,
+    // so show it the phase it qualifies for rather than a dead button.
+    if (onChain === "folklist" && connected && listed === false) {
+      setPhase("public");
+      return;
+    }
+    setPhase(onChain);
+  }, [live, pinned, connected, listed]);
 
   // Poll the contract so supply, phase and prices are the chain's, not ours.
   useEffect(() => {
@@ -371,6 +411,10 @@ export default function MintPage() {
   const pct = (shown / cap) * 100;
   const soldOut = live !== null && live.minted >= MAX_SUPPLY;
   const remaining = live ? Math.max(0, MAX_SUPPLY - live.minted) : 20;
+  // No per-wallet cap on-chain, so MAX is what supply allows, kept to a
+  // sane batch so one tap cannot build a transaction nobody can afford.
+  const MAX_PER_TX = 20;
+  const maxForPhase = Math.max(1, Math.min(remaining, MAX_PER_TX));
   const wrongChain = connected && CHAIN_ID > 0 && chainId !== null && chainId !== CHAIN_ID;
 
   return (
@@ -414,33 +458,30 @@ export default function MintPage() {
               {checking ? "CONNECTING…" : "CONNECT WALLET"}
             </button>
           )}
-
-        <div className="countdown">
-          <span className="cdLabel">MINTING IN</span>
-          <div className="cdBoxes">
-            {(cd
-              ? ([
-                  ["DAYS", cd.days],
-                  ["HOURS", cd.hours],
-                  ["MINS", cd.mins],
-                  ["SECS", cd.secs],
-                ] as const)
-              : ([
-                  ["DAYS", null],
-                  ["HOURS", null],
-                  ["MINS", null],
-                  ["SECS", null],
-                ] as const)
-            ).map(([label, v]) => (
-              <div className="cdBox" key={label}>
-                <b>{v === null ? "--" : String(v).padStart(2, "0")}</b>
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
         </div>
       </header>
+
+      {picking && (
+        <div className="pickWrap" onClick={() => setPicking(false)}>
+          <div className="pickCard" onClick={(e) => e.stopPropagation()}>
+            <h2>Choose a wallet</h2>
+            {choices.map((w) => (
+              <button key={w.uuid} className="pickRow" onClick={() => void pick(w)}>
+                {w.icon ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={w.icon} alt="" width={24} height={24} />
+                ) : (
+                  <span className="pickDot" />
+                )}
+                {w.name}
+              </button>
+            ))}
+            <button className="pickCancel" onClick={() => setPicking(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {wrongChain && (
         <div className="netWarn">
@@ -492,6 +533,35 @@ export default function MintPage() {
           <p className="blurb">
             <strong>10,000</strong> characters for <strong>10,000</strong> folks.
           </p>
+
+          <div className="countdown">
+            <span className="cdLabel">
+              {cd && cd.days + cd.hours + cd.mins + cd.secs === 0
+                ? "MINT IS LIVE"
+                : "MINTING IN"}
+            </span>
+            <div className="cdBoxes">
+              {(cd
+                ? ([
+                    ["DAYS", cd.days],
+                    ["HOURS", cd.hours],
+                    ["MINS", cd.mins],
+                    ["SECS", cd.secs],
+                  ] as const)
+                : ([
+                    ["DAYS", null],
+                    ["HOURS", null],
+                    ["MINS", null],
+                    ["SECS", null],
+                  ] as const)
+              ).map(([label, v]) => (
+                <div className="cdBox" key={label}>
+                  <b>{v === null ? "--" : String(v).padStart(2, "0")}</b>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* right — mint */}
@@ -570,6 +640,16 @@ export default function MintPage() {
                     aria-label="Increase quantity"
                   >
                     +
+                  </button>
+
+                  <button
+                    className="maxBtn"
+                    type="button"
+                    onClick={() => setQty(Math.max(1, maxForPhase))}
+                    disabled={qty >= maxForPhase}
+                    title={`Mint the most this phase allows (${maxForPhase})`}
+                  >
+                    MAX
                   </button>
                 </div>
 
@@ -676,6 +756,15 @@ export default function MintPage() {
                     </p>
                   );
                 })()}
+                {ethUsd && (
+                  <p className="rateNote">
+                    <span className="rDot" /> ETH $
+                    {ethUsd.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -711,6 +800,11 @@ export default function MintPage() {
               <span className="schedBody">
                 <span className="schedName">
                   FOLKLIST <span className="pill">Whitelist</span>
+                  {connected && listed !== null && (
+                    <span className={`rowElig ${listed ? "yes" : "no"}`}>
+                      {listed ? "You're in" : "Not listed"}
+                    </span>
+                  )}
                 </span>
                 <span className="schedWhen">
                   Opens 3pm WAT · Connect to check eligibility
@@ -731,6 +825,9 @@ export default function MintPage() {
               <span className="schedBody">
                 <span className="schedName">
                   PUBLIC <span className="pill">Open</span>
+                  {connected && (
+                    <span className="rowElig yes">Open to you</span>
+                  )}
                 </span>
                 <span className="schedWhen">
                   Shares one pool with unminted whitelist supply
@@ -752,36 +849,22 @@ export default function MintPage() {
 
       <footer className="pageFoot">
         <div className="footInner">
-          <div className="footBrand">
-            <Image
-              src="/folk.jpg"
-              alt=""
-              width={28}
-              height={28}
-              className="footMark"
-            />
-            <span>FOLKS</span>
-          </div>
-
-          <p className="footRate">
-            {ethUsd ? (
-              <>
-                <span className="rDot" />
-                ETH $
-                {ethUsd.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-                <span className="rNote"> · live, updates every 60s</span>
-              </>
-            ) : (
-              <span className="rNote">ETH price unavailable</span>
-            )}
-          </p>
-
-          <p className="footNote">
-            No creator royalties · Secondary on OpenSea · Robinhood Chain
-          </p>
+          <a
+            className="footLink"
+            href="https://x.com/thefolksxyz"
+            target="_blank"
+            rel="noreferrer"
+          >
+            X
+          </a>
+          <a
+            className="footLink"
+            href="https://opensea.io/collection/folks"
+            target="_blank"
+            rel="noreferrer"
+          >
+            OpenSea
+          </a>
         </div>
       </footer>
     </div>
