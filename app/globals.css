@@ -1304,3 +1304,14 @@ h1 {
 
 .foot a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .foot a:hover { color: var(--fg); }
+
+.teamNote {
+  margin: 18px 0 0;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #0e0e10;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}

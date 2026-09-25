@@ -155,6 +155,7 @@ export default function MintPage() {
   const [live, setLive] = useState<{
     phase: 0 | 1 | 2;
     minted: number;
+    teamMinted: number;
     folklistPrice: bigint;
     publicPrice: bigint;
     platformFee: bigint;
@@ -401,14 +402,15 @@ export default function MintPage() {
             : null;
         if (!provider) return;
         const c = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
-        const [ph, tm, fp, pp, pf, fs] = await Promise.all([
+        const [ph, tm, fp, pp, pf, fs, team] = await Promise.all([
           c.phase(), c.totalMinted(), c.folklistPrice(),
-          c.publicPrice(), c.platformFee(), c.folklistStart(),
+          c.publicPrice(), c.platformFee(), c.folklistStart(), c.teamMinted(),
         ]);
         if (!alive) return;
         setLive({
           phase: Number(ph) as 0 | 1 | 2,
           minted: Number(tm),
+          teamMinted: Number(team),
           folklistPrice: fp,
           publicPrice: pp,
           platformFee: pf,
@@ -685,6 +687,14 @@ export default function MintPage() {
                 <span>75%</span>
               </div>
             </div>
+
+            {phase === "team" && (
+              <p className="teamNote">
+                {live && live.teamMinted >= TEAM_RESERVE
+                  ? "The team allocation has been minted."
+                  : "Reserved for the team. Nothing to mint here."}
+              </p>
+            )}
 
             {phase !== "team" && (
               <>
