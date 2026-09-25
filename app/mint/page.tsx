@@ -45,8 +45,10 @@ const ART = [
 // Team mints first, then folklist, then public.
 type Phase = "team" | "folklist" | "public";
 
-// Folklist opens 3pm WAT. WAT is UTC+1 year-round, so that is 14:00 UTC.
-const MINT_START = new Date("2026-09-25T14:00:00Z");
+// Times are WAT, which is UTC+1 year-round, so no DST to account for.
+// Team 5:30pm, folklist 6pm, and the contract opens public an hour later.
+const TEAM_START = new Date("2026-09-25T16:30:00Z"); // 5:30pm WAT
+const MINT_START = new Date("2026-09-25T17:00:00Z"); // 6:00pm WAT
 
 function useEthPrice() {
   const [usd, setUsd] = useState<number | null>(null);
@@ -130,9 +132,15 @@ export default function MintPage() {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [minted, setMinted] = useState<number | null>(null);
   const [mintError, setMintError] = useState<string | null>(null);
-  const startAt = live?.folklistStart
+  // Before the chain has a schedule, fall back to the announced times.
+  const folklistAt = live?.folklistStart
     ? new Date(live.folklistStart * 1000)
     : MINT_START;
+  // Team runs 30 minutes ahead of folklist, so count to whichever is next.
+  const teamAt = live?.folklistStart
+    ? new Date((live.folklistStart - 1800) * 1000)
+    : TEAM_START;
+  const startAt = Date.now() < teamAt.getTime() ? teamAt : folklistAt;
   const cd = useCountdown(startAt);
   const ethUsd = useEthPrice();
   // Prices read in ETH first; the swap button flips to USD.
@@ -538,7 +546,9 @@ export default function MintPage() {
             <span className="cdLabel">
               {cd && cd.days + cd.hours + cd.mins + cd.secs === 0
                 ? "MINT IS LIVE"
-                : "MINTING IN"}
+                : startAt === teamAt
+                  ? "TEAM MINT IN"
+                  : "MINTING IN"}
             </span>
             <div className="cdBoxes">
               {(cd
@@ -586,10 +596,10 @@ export default function MintPage() {
 
             <p className="panelNote">
               {phase === "team"
-                ? "Reserved. Minted by the team, not open to the public."
+                ? "Opens 5:30pm WAT. Reserved for the team, not open to the public."
                 : phase === "folklist"
                   ? !connected
-                    ? "Opens 3pm WAT · Connect to check eligibility."
+                    ? "Opens 6pm WAT · Connect to check eligibility."
                     : eligible
                       ? "You're eligible. Mint is open."
                       : "This wallet isn't on the folklist. You can mint in the public phase."
@@ -782,7 +792,7 @@ export default function MintPage() {
                   TEAM <span className="pill">Reserved</span>
                 </span>
                 <span className="schedWhen">
-                  Minted by the team, not open to the public
+                  5:30pm WAT · minted by the team, not open to the public
                 </span>
               </span>
               <span className="schedCost">FREE</span>
@@ -807,7 +817,7 @@ export default function MintPage() {
                   )}
                 </span>
                 <span className="schedWhen">
-                  Opens 3pm WAT · Connect to check eligibility
+                  Opens 6pm WAT · Connect to check eligibility
                 </span>
               </span>
               <span className="schedCost">FREE + gas</span>
@@ -830,7 +840,7 @@ export default function MintPage() {
                   )}
                 </span>
                 <span className="schedWhen">
-                  Shares one pool with unminted whitelist supply
+                  7pm WAT · shares one pool with unminted whitelist supply
                 </span>
               </span>
               <span className="schedCost">
