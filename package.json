@@ -21,7 +21,8 @@
     "contracts:test-deployed": "node scripts/test-deployed.cjs",
     "contracts:test-revenue": "node scripts/test-revenue.cjs",
     "contracts:test-lock": "node scripts/test-lock.cjs",
-    "contracts:test-owner": "node scripts/test-owner.cjs"
+    "contracts:test-owner": "node scripts/test-owner.cjs",
+    "test:wallet": "sh scripts/test-wallet.sh"
   },
   "dependencies": {
     "ethers": "^6.17.0",

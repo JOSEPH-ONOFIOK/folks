@@ -5,7 +5,7 @@ import {
   connect as connectWallet,
   currentAccount,
   getProvider,
-  hasWallet,
+  readyWallets,
 } from "@/lib/wallet";
 
 type Phase = 0 | 1 | 2;
@@ -179,11 +179,12 @@ export default function AdminPage() {
           <button
             className="aBtn primary"
             onClick={async () => {
-              if (!hasWallet()) {
+              const found = await readyWallets();
+              if (found.length === 0) {
                 setMsg({ kind: "err", text: "No wallet found in this browser." });
                 return;
               }
-              const a = await connectWallet();
+              const a = await connectWallet(found[0].provider);
               if (a) setAddress(a);
             }}
           >

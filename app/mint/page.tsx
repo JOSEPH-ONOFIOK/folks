@@ -7,10 +7,10 @@ import {
   currentAccount,
   currentChainId,
   getProvider,
-  hasWallet,
   isMobile,
   metamaskDeepLink,
   onWallets,
+  readyWallets,
   startDiscovery,
   switchChain,
   wallets as listWallets,
@@ -204,25 +204,33 @@ export default function MintPage() {
 
   async function onConnect() {
     setWalletError(null);
+    setChecking(true);
 
-    // No injected wallet: on a phone, hand them into a wallet's own browser;
-    // on desktop, point at the extension.
-    if (!hasWallet()) {
+    // Discovery is an event round-trip, so wait for it rather than reading a
+    // list that may still be filling.
+    const found = await readyWallets();
+
+    if (found.length === 0) {
+      setChecking(false);
       if (isMobile()) {
         window.location.href = metamaskDeepLink();
         return;
       }
-      setWalletError("No wallet found. Install MetaMask or open this page in your wallet's browser.");
+      setWalletError("No wallet found. Install MetaMask, or open this page in your wallet's browser.");
       return;
     }
 
     // More than one wallet installed: ask which, rather than guessing and
     // opening the wrong one.
-    if (choices.length > 1) { setPicking(true); return; }
+    if (found.length > 1) {
+      setChoices(found);
+      setPicking(true);
+      setChecking(false);
+      return;
+    }
 
-    setChecking(true);
     try {
-      const addr = await connectWallet(choices[0]?.provider);
+      const addr = await connectWallet(found[0].provider);
       if (addr) adopt(addr);
       else setWalletError("No account returned. Unlock your wallet and try again.");
     } catch (err) {
@@ -312,9 +320,11 @@ export default function MintPage() {
   // visitor switches or locks their account.
   useEffect(() => {
     let alive = true;
-    void currentAccount().then((addr) => {
-      if (alive && addr) adopt(addr);
-    });
+    void readyWallets().then(() =>
+      currentAccount().then((addr) => {
+        if (alive && addr) adopt(addr);
+      }),
+    );
 
     const provider = getProvider();
     if (!provider?.on) return () => { alive = false; };

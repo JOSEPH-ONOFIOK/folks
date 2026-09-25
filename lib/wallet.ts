@@ -41,28 +41,33 @@ function emit() {
 
 /// Start listening for wallet announcements. Safe to call repeatedly.
 export function startDiscovery(): void {
-  if (listening || typeof window === "undefined") return;
-  listening = true;
+  if (typeof window === "undefined") return;
 
-  window.addEventListener("eip6963:announceProvider", (event: Event) => {
-    const detail = (event as CustomEvent<Eip6963Detail>).detail;
-    if (!detail?.info?.uuid || !detail.provider) return;
-    discovered.set(detail.info.uuid, {
-      uuid: detail.info.uuid,
-      name: detail.info.name,
-      icon: detail.info.icon,
-      provider: detail.provider,
+  if (!listening) {
+    listening = true;
+    window.addEventListener("eip6963:announceProvider", (event: Event) => {
+      const detail = (event as CustomEvent<Eip6963Detail>).detail;
+      if (!detail?.info?.uuid || !detail.provider) return;
+      discovered.set(detail.info.uuid, {
+        uuid: detail.info.uuid,
+        name: detail.info.name,
+        icon: detail.info.icon,
+        provider: detail.provider,
+      });
+      emit();
     });
-    emit();
-  });
+  }
 
-  // Ask any wallet already loaded to announce itself.
+  // Ask any wallet already loaded to announce itself. Re-asking is harmless
+  // and picks up extensions that inject after the first paint.
   window.dispatchEvent(new Event("eip6963:requestProvider"));
 }
 
 export function onWallets(fn: (w: WalletInfo[]) => void): () => void {
   listeners.add(fn);
-  return () => listeners.delete(fn);
+  return () => {
+    listeners.delete(fn);
+  };
 }
 
 /// Every wallet we can see, including a legacy window.ethereum that never
@@ -104,6 +109,38 @@ export function getProvider(): Eip1193 | null {
 
 export function hasWallet(): boolean {
   return wallets().length > 0;
+}
+
+/// Wait briefly for wallets to announce themselves. Discovery is an event
+/// round-trip, so a visitor who clicks immediately would otherwise race it
+/// and fall back to whichever extension owns window.ethereum.
+export async function readyWallets(timeoutMs = 600): Promise<WalletInfo[]> {
+  startDiscovery();
+  if (wallets().length > 0) return wallets();
+
+  // Wallets answer one at a time. Resolving on the first reply would hide
+  // every other wallet, so keep a short grace period open after each one and
+  // only settle when they have stopped arriving (or the timeout is hit).
+  return new Promise((resolve) => {
+    let settled = false;
+    let grace: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      off();
+      clearTimeout(grace);
+      clearTimeout(cap);
+      resolve(wallets());
+    };
+
+    const off = onWallets(() => {
+      clearTimeout(grace);
+      grace = setTimeout(finish, 120);
+    });
+
+    const cap = setTimeout(finish, timeoutMs);
+  });
 }
 
 export function isMobile(): boolean {

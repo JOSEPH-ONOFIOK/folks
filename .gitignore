@@ -16,3 +16,6 @@ eligible/
 .env*.local
 .env.deploy
 deployed.json
+
+# wallet test build
+.wallet-test/
