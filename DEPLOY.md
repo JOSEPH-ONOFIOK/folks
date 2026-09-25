@@ -1,5 +1,18 @@
 # Deploying Folks
 
+## Live deployment
+
+| | |
+|---|---|
+| Contract | `0x433351c6ddc18991CB8e10acEd2093A63109225e` |
+| Chain | Robinhood Chain mainnet (4663) |
+| Owner | `0x9EC2C380297945e5db978319fCD6155cfB384BAB` |
+| Folklist root | `0xd88289…791447` (184,061 wallets) |
+| Explorer | https://robinhoodchain.blockscout.com/address/0x433351c6ddc18991CB8e10acEd2093A63109225e |
+
+Deployed 2026-09-25. Nothing can mint until the owner sets the sale time,
+and secondary trading is locked until the owner opens it.
+
 Everything below has been rehearsed end to end on a local chain. The only
 step that cannot be rehearsed is the real network, which needs an RPC URL
 and a funded deployer key.
