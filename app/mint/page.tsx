@@ -40,7 +40,26 @@ const ART = [
   "/folk-3.jpg",
   "/folk-4.jpg",
   "/folk-5.jpg",
+  "/folk-6.jpg",
+  "/folk-7.jpg",
+  "/folk-8.jpg",
+  "/folk-9.jpg",
+  "/folk-10.jpg",
+  "/folk-11.jpg",
+  "/folk-12.jpg",
+  "/folk-13.jpg",
+  "/folk-14.jpg",
+  "/folk-15.jpg",
+  "/folk-16.jpg",
+  "/folk-17.jpg",
+  "/folk-18.jpg",
+  "/folk-19.jpg",
+  "/folk-20.jpg",
+  "/folk-21.jpg",
 ];
+
+// The strip shows a handful; the hero cycles the whole set.
+const THUMBS = 5;
 
 // Team mints first, then folklist, then public.
 type Phase = "team" | "folklist" | "public";
@@ -419,6 +438,13 @@ export default function MintPage() {
   const pct = (shown / cap) * 100;
   const soldOut = live !== null && live.minted >= MAX_SUPPLY;
   const remaining = live ? Math.max(0, MAX_SUPPLY - live.minted) : 20;
+
+  // 21 thumbnails would be postage stamps, so show a window that follows the
+  // hero and wraps around the set.
+  const thumbWindow = Array.from({ length: Math.min(THUMBS, ART.length) }, (_, n) => {
+    const i = (active + n) % ART.length;
+    return { src: ART[i], i };
+  });
   // No per-wallet cap on-chain, so MAX is what supply allows, kept to a
   // sane batch so one tap cannot build a transaction nobody can afford.
   const MAX_PER_TX = 20;
@@ -523,7 +549,7 @@ export default function MintPage() {
             />
           </div>
           <div className="thumbs">
-            {ART.map((src, i) => (
+            {thumbWindow.map(({ src, i }) => (
               <button
                 key={src}
                 className={`thumb ${i === active ? "on" : ""}`}
