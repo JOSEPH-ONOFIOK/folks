@@ -105,8 +105,10 @@ contract Folks is ERC721A, Ownable, ReentrancyGuard {
     ///         price plus platform fee. The site quotes this so the number in
     ///         the wallet prompt matches the number on the page.
     function mintCost(uint256 quantity) external view returns (uint256) {
-        uint8 p = phase();
-        uint256 unit = p == 1 ? folklistPrice : publicPrice;
+        // Before the sale opens, quote folklist: that is the phase that runs
+        // first, so a page loaded early and minted at open still sends the
+        // right amount.
+        uint256 unit = phase() == 2 ? publicPrice : folklistPrice;
         return (unit + platformFee) * quantity;
     }
 
