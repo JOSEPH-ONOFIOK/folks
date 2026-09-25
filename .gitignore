@@ -11,3 +11,6 @@ eligible/
 .hh-cache/
 .hh-artifacts/
 .hh-artifacts-folks.json
+
+# Local env
+.env*.local

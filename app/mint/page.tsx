@@ -5,11 +5,24 @@ import { useCallback, useEffect, useState } from "react";
 import {
   connect as connectWallet,
   currentAccount,
+  currentChainId,
   getProvider,
   hasWallet,
   isMobile,
   metamaskDeepLink,
+  switchChain,
 } from "@/lib/wallet";
+import {
+  ABI,
+  CHAIN_ID,
+  CHAIN_NAME,
+  CONTRACT_ADDRESS,
+  EXPLORER,
+  MAX_SUPPLY,
+  RPC_URL,
+  readableError,
+  txUrl,
+} from "@/lib/contract";
 
 const SUPPLY = 10000;
 const TEAM_RESERVE = 150;
@@ -93,7 +106,28 @@ export default function MintPage() {
   const [listed, setListed] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
-  const cd = useCountdown(MINT_START);
+  const [chainId, setChainId] = useState<number | null>(null);
+  const [proof, setProof] = useState<string[] | null>(null);
+
+  // Live contract state. Null until the first read lands.
+  const [live, setLive] = useState<{
+    phase: 0 | 1 | 2;
+    minted: number;
+    folklistPrice: bigint;
+    publicPrice: bigint;
+    platformFee: bigint;
+    folklistStart: number;
+  } | null>(null);
+
+  // Mint transaction lifecycle.
+  const [minting, setMinting] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [minted, setMinted] = useState<number | null>(null);
+  const [mintError, setMintError] = useState<string | null>(null);
+  const startAt = live?.folklistStart
+    ? new Date(live.folklistStart * 1000)
+    : MINT_START;
+  const cd = useCountdown(startAt);
   const ethUsd = useEthPrice();
   // Prices read in ETH first; the swap button flips to USD.
   const [inEth, setInEth] = useState(true);
@@ -101,7 +135,11 @@ export default function MintPage() {
   // Folklist is gated by the allowlist; public is open to anyone; team
   // never mints from this page.
   const eligible =
-    phase === "public" ? true : phase === "folklist" ? listed === true : false;
+    phase === "public"
+      ? true
+      : phase === "folklist"
+        ? listed === true && proof !== null && proof.length > 0
+        : false;
 
   const short = (a: string) =>
     a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
@@ -159,6 +197,50 @@ export default function MintPage() {
     }
   }
 
+  async function onSwitchNetwork() {
+    const okSwitch = await switchChain(CHAIN_ID, CHAIN_NAME, RPC_URL, EXPLORER);
+    if (!okSwitch) setMintError(`Switch your wallet to ${CHAIN_NAME} to mint.`);
+  }
+
+  async function onMint() {
+    setMintError(null);
+    setTxHash(null);
+    setMinted(null);
+
+    if (!CONTRACT_ADDRESS) {
+      setMintError("The contract address isn't configured yet.");
+      return;
+    }
+    if (wrongChain) { void onSwitchNetwork(); return; }
+
+    setMinting(true);
+    try {
+      const { ethers } = await import("ethers");
+      const provider = new ethers.BrowserProvider(getProvider()!);
+      const signer = await provider.getSigner();
+      const c = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+      // Ask the contract what this costs rather than recomputing it here, so
+      // the wallet prompt can never disagree with the chain.
+      const value: bigint = await c.mintCost(qty);
+
+      const tx =
+        live?.phase === 1
+          ? await c.folklistMint(qty, proof ?? [], { value })
+          : await c.publicMint(qty, { value });
+
+      setTxHash(tx.hash);
+      await tx.wait();
+      setMinted(qty);
+    } catch (err) {
+      const msg = readableError(err);
+      if (msg) setMintError(msg);
+      setTxHash(null);
+    } finally {
+      setMinting(false);
+    }
+  }
+
   function disconnect() {
     setConnected(false);
     setListed(null);
@@ -195,6 +277,84 @@ export default function MintPage() {
     };
   }, [adopt]);
 
+  // The chain decides which phase is live. Viewing another row is fine, but
+  // we never start on a phase the contract disagrees with.
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    if (!live || pinned) return;
+    setPhase(live.phase === 2 ? "public" : live.phase === 1 ? "folklist" : "team");
+  }, [live, pinned]);
+
+  // Poll the contract so supply, phase and prices are the chain's, not ours.
+  useEffect(() => {
+    if (!CONTRACT_ADDRESS) return;
+    let alive = true;
+
+    const read = async () => {
+      try {
+        const { ethers } = await import("ethers");
+        const injected = getProvider();
+        const provider = injected
+          ? new ethers.BrowserProvider(injected)
+          : RPC_URL
+            ? new ethers.JsonRpcProvider(RPC_URL)
+            : null;
+        if (!provider) return;
+        const c = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+        const [ph, tm, fp, pp, pf, fs] = await Promise.all([
+          c.phase(), c.totalMinted(), c.folklistPrice(),
+          c.publicPrice(), c.platformFee(), c.folklistStart(),
+        ]);
+        if (!alive) return;
+        setLive({
+          phase: Number(ph) as 0 | 1 | 2,
+          minted: Number(tm),
+          folklistPrice: fp,
+          publicPrice: pp,
+          platformFee: pf,
+          folklistStart: Number(fs),
+        });
+      } catch {
+        // Leave the last good read in place rather than flashing zeros.
+      }
+    };
+
+    void read();
+    const id = setInterval(read, 12000);
+    return () => { alive = false; clearInterval(id); };
+  }, [connected]);
+
+  // Track the wallet's network so we can stop a mint on the wrong chain.
+  useEffect(() => {
+    if (!connected) { setChainId(null); return; }
+    let alive = true;
+    void currentChainId().then((id) => alive && setChainId(id));
+    const provider = getProvider();
+    const onChain = () => { void currentChainId().then((id) => alive && setChainId(id)); };
+    provider?.on?.("chainChanged", onChain);
+    return () => { alive = false; provider?.removeListener?.("chainChanged", onChain); };
+  }, [connected]);
+
+  // Fetch this wallet's folklist proof once, so minting doesn't wait on it.
+  useEffect(() => {
+    if (!connected || !address) { setProof(null); return; }
+    let alive = true;
+    void (async () => {
+      try {
+        const res = await fetch("/api/proof", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ address }),
+        });
+        const data = (await res.json()) as { eligible: boolean; proof: string[] };
+        if (alive) setProof(data.eligible ? data.proof : []);
+      } catch {
+        if (alive) setProof(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [connected, address]);
+
   // Cycle the hero art on its own. Hovering pauses it; picking a
   // thumbnail hands control to the viewer for good.
   useEffect(() => {
@@ -203,10 +363,15 @@ export default function MintPage() {
     return () => clearInterval(id);
   }, [hovering, tookOver]);
 
-  // Team is fully minted; the rest share one pool of what's left.
-  const minted = phase === "team" ? TEAM_RESERVE : TEAM_RESERVE;
-  const cap = phase === "team" ? TEAM_RESERVE : SUPPLY;
-  const pct = (minted / cap) * 100;
+  // Supply comes from the chain once it is readable; before that the bar
+  // stays empty rather than showing a number we made up.
+  const supplyMinted = live?.minted ?? 0;
+  const cap = phase === "team" ? TEAM_RESERVE : MAX_SUPPLY;
+  const shown = phase === "team" ? Math.min(supplyMinted, TEAM_RESERVE) : supplyMinted;
+  const pct = (shown / cap) * 100;
+  const soldOut = live !== null && live.minted >= MAX_SUPPLY;
+  const remaining = live ? Math.max(0, MAX_SUPPLY - live.minted) : 20;
+  const wrongChain = connected && CHAIN_ID > 0 && chainId !== null && chainId !== CHAIN_ID;
 
   return (
     <div className="mintPage">
@@ -276,6 +441,15 @@ export default function MintPage() {
         </div>
         </div>
       </header>
+
+      {wrongChain && (
+        <div className="netWarn">
+          <span>Wrong network — this mint runs on {CHAIN_NAME}.</span>
+          <button className="netBtn" onClick={() => void onSwitchNetwork()}>
+            Switch
+          </button>
+        </div>
+      )}
 
       <nav className="tabs">
         <span className="tab on">Mint</span>
@@ -357,7 +531,7 @@ export default function MintPage() {
               <div className="progHead">
                 <span>MINTED</span>
                 <b>
-                  {minted.toLocaleString()} / {cap.toLocaleString()}
+                  {shown.toLocaleString()} / {cap.toLocaleString()}
                 </b>
               </div>
               <div className="track">
@@ -389,7 +563,10 @@ export default function MintPage() {
                   </span>
                   <button
                     className="qtyBtn"
-                    onClick={() => setQty((q) => q + 1)}
+                    onClick={() =>
+                      setQty((q) => Math.min(q + 1, Math.max(1, remaining)))
+                    }
+                    disabled={qty >= remaining}
                     aria-label="Increase quantity"
                   >
                     +
@@ -400,18 +577,33 @@ export default function MintPage() {
                   <button
                     className="mintBtn"
                     type="button"
-                    disabled={(connected && !eligible) || checking}
+                    disabled={
+                      checking ||
+                      minting ||
+                      soldOut ||
+                      (connected && !wrongChain && !eligible)
+                    }
                     onClick={() => {
                       if (!connected) void onConnect();
+                      else if (wrongChain) void onSwitchNetwork();
+                      else void onMint();
                     }}
                   >
-                    {checking
-                      ? "CONNECTING…"
-                      : !connected
-                        ? "CONNECT WALLET"
-                        : eligible
-                          ? "MINT"
-                          : "NOT ELIGIBLE"}
+                    {soldOut
+                      ? "SOLD OUT"
+                      : checking
+                        ? "CONNECTING…"
+                        : minting
+                          ? txHash
+                            ? "CONFIRMING…"
+                            : "CHECK YOUR WALLET…"
+                          : !connected
+                            ? "CONNECT WALLET"
+                            : wrongChain
+                              ? `SWITCH TO ${CHAIN_NAME.toUpperCase()}`
+                              : eligible
+                                ? "MINT"
+                                : "NOT ELIGIBLE"}
                   </button>
 
                   {connected && (
@@ -422,6 +614,34 @@ export default function MintPage() {
                 </div>
 
                 {walletError && <p className="walletErr">{walletError}</p>}
+                {mintError && <p className="walletErr">{mintError}</p>}
+
+                {minted !== null && (
+                  <div className="mintDone">
+                    <strong>
+                      Minted {minted} Folk{minted > 1 ? "s" : ""}.
+                    </strong>
+                    {txHash && txUrl(txHash) && (
+                      <a href={txUrl(txHash)!} target="_blank" rel="noreferrer">
+                        View transaction
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {minting && txHash && (
+                  <p className="mintPending">
+                    Waiting for confirmation…
+                    {txUrl(txHash) && (
+                      <>
+                        {" "}
+                        <a href={txUrl(txHash)!} target="_blank" rel="noreferrer">
+                          track it
+                        </a>
+                      </>
+                    )}
+                  </p>
+                )}
 
                 <p className="totalLine">
                   {qty} Folk{qty > 1 ? "s" : ""} ={" "}
@@ -465,7 +685,7 @@ export default function MintPage() {
 
             <button
               className={`sched ${phase === "team" ? "on" : ""}`}
-              onClick={() => setPhase("team")}
+              onClick={() => { setPinned(true); setPhase("team"); }}
             >
               <span className="dot" />
               <span className="schedBody">
@@ -482,6 +702,7 @@ export default function MintPage() {
             <button
               className={`sched ${phase === "folklist" ? "on" : ""}`}
               onClick={() => {
+                setPinned(true);
                 setPhase("folklist");
                 setQty(1);
               }}
@@ -501,6 +722,7 @@ export default function MintPage() {
             <button
               className={`sched ${phase === "public" ? "on" : ""}`}
               onClick={() => {
+                setPinned(true);
                 setPhase("public");
                 setQty(1);
               }}

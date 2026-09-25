@@ -66,3 +66,56 @@ export async function currentAccount(): Promise<string | null> {
     return null;
   }
 }
+
+/// Current chain as a decimal number, or null when no wallet is present.
+export async function currentChainId(): Promise<number | null> {
+  const provider = getProvider();
+  if (!provider) return null;
+  try {
+    const hex = (await provider.request({ method: "eth_chainId" })) as string;
+    return Number.parseInt(hex, 16);
+  } catch {
+    return null;
+  }
+}
+
+/// Ask the wallet to move to `chainId`, adding the network if it isn't known.
+export async function switchChain(
+  chainId: number,
+  name: string,
+  rpcUrl: string,
+  explorer: string,
+): Promise<boolean> {
+  const provider = getProvider();
+  if (!provider) return false;
+  const hex = "0x" + chainId.toString(16);
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: hex }],
+    });
+    return true;
+  } catch (err) {
+    // 4902: the wallet doesn't have this network yet, so offer to add it.
+    if ((err as { code?: number })?.code === 4902 && rpcUrl) {
+      try {
+        await provider.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: hex,
+              chainName: name,
+              nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+              rpcUrls: [rpcUrl],
+              blockExplorerUrls: explorer ? [explorer] : [],
+            },
+          ],
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+}
