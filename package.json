@@ -15,7 +15,10 @@
     "contracts:test-list": "node scripts/test-real-list.cjs",
     "merkle:build": "node scripts/merkle-build.cjs",
     "chain": "hardhat node",
-    "contracts:test-withdraw": "node scripts/test-withdraw.cjs"
+    "contracts:test-withdraw": "node scripts/test-withdraw.cjs",
+    "deploy": "node scripts/deploy.cjs",
+    "deploy:dry": "DRY_RUN=1 node scripts/deploy.cjs",
+    "contracts:test-deployed": "node scripts/test-deployed.cjs"
   },
   "dependencies": {
     "ethers": "^6.17.0",

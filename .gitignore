@@ -14,3 +14,5 @@ eligible/
 
 # Local env
 .env*.local
+.env.deploy
+deployed.json
