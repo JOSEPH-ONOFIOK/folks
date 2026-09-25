@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { CONTRACT_ADDRESS } from "@/lib/contract";
 import {
   connect as connectWallet,
   currentAccount,
@@ -77,8 +78,10 @@ export default function AdminPage() {
     chain && address && chain.owner.toLowerCase() === address.toLowerCase();
 
   useEffect(() => {
+    // Prefer the deployed address from the environment, so a fresh browser
+    // lands on the right contract without anyone pasting it.
     const saved = localStorage.getItem("folks.contract");
-    if (saved) setContract(saved);
+    setContract(CONTRACT_ADDRESS || saved || "");
     void currentAccount().then((a) => a && setAddress(a));
   }, []);
 
