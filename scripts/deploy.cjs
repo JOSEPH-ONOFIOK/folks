@@ -20,7 +20,10 @@ function need(name) {
 (async () => {
   const RPC = need("DEPLOY_RPC_URL");
   const KEY = need("DEPLOY_PRIVATE_KEY");
-  const OWNER = process.env.OWNER_ADDRESS || "";
+  // The wallet that controls the contract after deploy: opens trading, sets
+  // prices and times, team mints and withdraws. Deliberately not the
+  // deployer by default, so a hot deploy key never keeps control.
+  const OWNER = process.env.OWNER_ADDRESS || "0x9EC2C380297945e5db978319fCD6155cfB384BAB";
   // Defaults to the deployer, so all mint revenue lands in one place.
   const FEE_RECIPIENT = process.env.FEE_RECIPIENT || "";
 
@@ -34,7 +37,8 @@ function need(name) {
   const provider = new ethers.JsonRpcProvider(RPC);
   const wallet = new ethers.Wallet(KEY, provider);
   const owner = OWNER || wallet.address;
-  const feeTo = FEE_RECIPIENT || wallet.address;
+  // Revenue follows the owner unless told otherwise.
+  const feeTo = FEE_RECIPIENT || owner;
 
   const net = await provider.getNetwork();
   const balance = await provider.getBalance(wallet.address);
@@ -42,14 +46,19 @@ function need(name) {
   console.log("network       :", net.name === "unknown" ? `chain ${net.chainId}` : net.name, `(${net.chainId})`);
   console.log("deployer      :", wallet.address);
   console.log("balance       :", ethers.formatEther(balance), "ETH");
-  console.log("owner         :", owner);
-  console.log("fee recipient :", feeTo, feeTo === wallet.address ? "(deployer)" : "");
+  console.log("owner         :", owner, owner.toLowerCase() === wallet.address.toLowerCase() ? "(deployer)" : "");
+  console.log("fee recipient :", feeTo, feeTo.toLowerCase() === owner.toLowerCase() ? "(owner)" : "");
   console.log("proceeds       : held in the contract, withdraw() sends them to any address");
   console.log("folklist price:", ethers.formatEther(FOLKLIST_PRICE), "ETH");
   console.log("public price  :", ethers.formatEther(PUBLIC_PRICE), "ETH");
   console.log("platform fee  :", ethers.formatEther(PLATFORM_FEE), "ETH");
   console.log("base URI      :", BASE_URI || "(none yet)");
   console.log("folklist root :", listRoot.root, `(${listRoot.count.toLocaleString()} wallets)`);
+
+  if (owner.toLowerCase() !== wallet.address.toLowerCase()) {
+    console.log("\nNote: the deployer will NOT control this contract.");
+    console.log("Only the owner above can open trading, change prices or withdraw.");
+  }
 
   if (balance === 0n) {
     console.error("\nDeployer has no funds on this network.");

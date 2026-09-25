@@ -49,6 +49,7 @@ type Chain = {
   folklistRoot: string;
   totalMinted: bigint;
   teamMinted: bigint;
+  transfersLocked: boolean;
 };
 
 const fmtTime = (ts: bigint) =>
@@ -96,12 +97,14 @@ export default function AdminPage() {
         c.folklistPrice(), c.publicPrice(), c.platformFee(), c.feeRecipient(),
         c.folklistRoot(), c.totalMinted(), c.teamMinted(),
       ]);
+      const locked = await c.transfersLocked();
       setChain({
         owner, phase: Number(ph) as Phase,
         folklistStart: fs, publicStart: ps,
         folklistPrice: fp, publicPrice: pp,
         platformFee: pf, feeRecipient: fr,
         folklistRoot: root, totalMinted: tm, teamMinted: team,
+        transfersLocked: locked,
       });
       localStorage.setItem("folks.contract", contract);
     } catch (e) {
@@ -224,6 +227,10 @@ export default function AdminPage() {
               <div><dt>Team minted</dt><dd>{chain.teamMinted.toString()} / 150</dd></div>
               <div><dt>Folklist opens</dt><dd>{fmtTime(chain.folklistStart)}</dd></div>
               <div><dt>Public opens</dt><dd>{fmtTime(chain.publicStart)}</dd></div>
+              <div>
+                <dt>Trading</dt>
+                <dd>{chain.transfersLocked ? "Locked" : "Open"}</dd>
+              </div>
               <div><dt>Folklist root</dt><dd className="mono tiny">{chain.folklistRoot}</dd></div>
             </dl>
           </section>
@@ -349,6 +356,34 @@ export default function AdminPage() {
             >
               {busy === "Folklist" ? "Saving…" : "Save root on-chain"}
             </button>
+          </section>
+
+          <section className="aCard">
+            <h2 className="aTitle">Secondary trading</h2>
+            {chain.transfersLocked ? (
+              <>
+                <p className="aHint">
+                  Folks cannot be transferred or listed yet. Minting is
+                  unaffected. Open this once the mint is done — it cannot be
+                  locked again.
+                </p>
+                <button
+                  className="aBtn primary"
+                  disabled={!isOwner || busy !== null}
+                  onClick={() => {
+                    if (!confirm("Open secondary trading? This is permanent.")) return;
+                    void send("Trading", (c) =>
+                      (c as never as { openTransfers: () => Promise<{ wait: () => Promise<unknown> }> })
+                        .openTransfers(),
+                    );
+                  }}
+                >
+                  {busy === "Trading" ? "Opening…" : "Open trading"}
+                </button>
+              </>
+            ) : (
+              <p className="aHint">Trading is open. This cannot be undone.</p>
+            )}
           </section>
 
           <section className="aCard">

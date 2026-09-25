@@ -11,7 +11,7 @@ and a funded deployer key.
 | RPC URL | Robinhood Chain endpoint |
 | Deployer key | a private key with gas on that chain |
 | Fee recipient | optional — leave blank and both the fee and the proceeds go to the deployer |
-| Owner address | who controls the contract afterwards (defaults to deployer) |
+| Owner address | defaults to `0x9EC2C380297945e5db978319fCD6155cfB384BAB` |
 
 Deployment costs roughly **1,897,338 gas** — about 0.0057 ETH at 3 gwei.
 
@@ -81,7 +81,11 @@ page renders but refuses to mint.
 
 ## 8. Open /admin and finish the setup
 
-Connect as the owner, then:
+**Connect the owner wallet `0x9EC2…4BAB`.** The deploy key cannot do any of
+this; it signs the deployment and nothing else. Any other wallet sees the
+panel read-only.
+
+Then:
 
 1. **Team mint** — 150 to the team wallet. Do this before the sale opens.
 2. **Sale time** — set folklist to **6:00pm WAT (17:00 UTC)**. Public opens
@@ -89,6 +93,11 @@ Connect as the owner, then:
    the team allocation before then.
 3. **Prices** — folklist 0, public as agreed.
 4. **Platform fee** — the per-mint fee and where it goes.
+
+Secondary trading is **locked at deploy**: Folks can be minted but not
+transferred or listed. Open it from the **Secondary trading** card once the
+mint is done. That is one-way — trading cannot be locked again, so holders
+never have to worry about being frozen.
 
 The contract enforces all of this. Nothing can mint early or underpay by
 calling the contract directly.

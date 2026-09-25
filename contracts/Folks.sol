@@ -21,6 +21,7 @@ contract Folks is ERC721A, Ownable, ReentrancyGuard {
     error TeamMintDone();
     error BadInput();
     error WithdrawFailed();
+    error TransfersLocked();
 
     // ---------------------------------------------------------------- config
 
@@ -49,6 +50,11 @@ contract Folks is ERC721A, Ownable, ReentrancyGuard {
 
     uint256 public teamMinted;
 
+    /// @notice While true, Folks cannot change hands. Minting still works, so
+    ///         the sale runs normally; only secondary trading is held back.
+    ///         One-way: once opened, trading cannot be locked again.
+    bool public transfersLocked = true;
+
     string private _base;
 
     // ---------------------------------------------------------------- events
@@ -58,6 +64,7 @@ contract Folks is ERC721A, Ownable, ReentrancyGuard {
     event PlatformFeeUpdated(uint256 fee, address recipient);
     event FolklistRootUpdated(bytes32 root);
     event BaseURIUpdated(string baseURI);
+    event TransfersOpened();
 
     // ----------------------------------------------------------- constructor
 
@@ -187,6 +194,13 @@ contract Folks is ERC721A, Ownable, ReentrancyGuard {
         emit FolklistRootUpdated(root);
     }
 
+    /// @notice Open secondary trading. Deliberately one-way: holders should
+    ///         never have to worry about their Folks being frozen again.
+    function openTransfers() external onlyOwner {
+        transfersLocked = false;
+        emit TransfersOpened();
+    }
+
     function setBaseURI(string calldata baseURI_) external onlyOwner {
         _base = baseURI_;
         emit BaseURIUpdated(baseURI_);
@@ -202,6 +216,21 @@ contract Folks is ERC721A, Ownable, ReentrancyGuard {
 
     function totalMinted() external view returns (uint256) {
         return _totalMinted();
+    }
+
+    /// @dev Blocks wallet-to-wallet moves while locked. `from == address(0)`
+    ///      is a mint and `to == address(0)` is a burn, both of which stay
+    ///      allowed so the sale itself is unaffected.
+    function _beforeTokenTransfers(
+        address from,
+        address to,
+        uint256 startTokenId,
+        uint256 quantity
+    ) internal virtual override {
+        if (transfersLocked && from != address(0) && to != address(0)) {
+            revert TransfersLocked();
+        }
+        super._beforeTokenTransfers(from, to, startTokenId, quantity);
     }
 
     function _baseURI() internal view override returns (string memory) {

@@ -19,7 +19,9 @@
     "deploy": "node scripts/deploy.cjs",
     "deploy:dry": "DRY_RUN=1 node scripts/deploy.cjs",
     "contracts:test-deployed": "node scripts/test-deployed.cjs",
-    "contracts:test-revenue": "node scripts/test-revenue.cjs"
+    "contracts:test-revenue": "node scripts/test-revenue.cjs",
+    "contracts:test-lock": "node scripts/test-lock.cjs",
+    "contracts:test-owner": "node scripts/test-owner.cjs"
   },
   "dependencies": {
     "ethers": "^6.17.0",
