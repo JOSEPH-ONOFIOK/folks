@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 
 const SUPPLY = 10000;
 const TEAM_RESERVE = 150;
-const PLATFORM_FEE = 0.18;
-const PUBLIC_PRICE = 1.5;
+// Gas runs about $0.10 a mint, but the page says "free + gas" rather than
+// quoting a figure that moves with the network.
+const PUBLIC_PRICE = 0.5;
 
 const ART = [
   "/folk-1.jpg",
@@ -361,23 +362,25 @@ export default function MintPage() {
                 </div>
 
                 <p className="totalLine">
-                  {qty} Folk{qty > 1 ? "s" : ""} = Platform fee + network gas
+                  {qty} Folk{qty > 1 ? "s" : ""} ={" "}
+                  {phase === "public" ? "Price + network gas" : "FREE + network gas"}
                 </p>
                 {(() => {
-                  const unit = phase === "public" ? PUBLIC_PRICE : 0;
-                  const due = (unit + PLATFORM_FEE) * qty;
+                  const due = (phase === "public" ? PUBLIC_PRICE : 0) * qty;
                   const showEth = inEth && ethUsd;
                   const pending = inEth && !ethUsd;
                   return (
                     <p className="totalConv">
                       <strong>
-                        {showEth
-                          ? `${eth(due, ethUsd)} ETH`
-                          : pending
-                            ? "… ETH"
-                            : `$${due.toFixed(2)}`}
+                        {due === 0
+                          ? "FREE"
+                          : showEth
+                            ? `${eth(due, ethUsd)} ETH`
+                            : pending
+                              ? "… ETH"
+                              : `$${due.toFixed(2)}`}
                       </strong>
-                      {ethUsd && (
+                      {ethUsd && due > 0 && (
                         <button
                           className="swap"
                           type="button"
@@ -451,23 +454,16 @@ export default function MintPage() {
           </div>
 
           <div className="fineprint">
-            <p>
-              Folklist: FREE +{" "}
-              {inEth
-                ? ethUsd
-                  ? `${eth(PLATFORM_FEE, ethUsd)} ETH`
-                  : "… ETH"
-                : `$${PLATFORM_FEE.toFixed(2)}`}{" "}
-              platform fee
-            </p>
+            <p>Team: FREE</p>
+            <p>Folklist: FREE + gas</p>
             <p>
               Public:{" "}
               {inEth
                 ? ethUsd
-                  ? `${eth(PUBLIC_PRICE, ethUsd)} ETH + ${eth(PLATFORM_FEE, ethUsd)} ETH`
-                  : "… ETH + … ETH"
-                : `$${PUBLIC_PRICE.toFixed(2)} + $${PLATFORM_FEE.toFixed(2)}`}{" "}
-              platform fee
+                  ? `${eth(PUBLIC_PRICE, ethUsd)} ETH`
+                  : "… ETH"
+                : `$${PUBLIC_PRICE.toFixed(2)}`}{" "}
+              + gas
             </p>
           </div>
         </section>
