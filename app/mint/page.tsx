@@ -414,6 +414,7 @@ export default function MintPage() {
                   Minted by the team, not open to the public
                 </span>
               </span>
+              <span className="schedCost">FREE</span>
             </button>
 
             <button
@@ -432,6 +433,7 @@ export default function MintPage() {
                   Opens 4:10pm UTC · Connect to check eligibility
                 </span>
               </span>
+              <span className="schedCost">FREE + gas</span>
             </button>
 
             <button
@@ -447,25 +449,20 @@ export default function MintPage() {
                   PUBLIC <span className="pill">Open</span>
                 </span>
                 <span className="schedWhen">
-                  Whitelist and public share one pool of the remaining supply
+                  Shares one pool with unminted whitelist supply
                 </span>
+              </span>
+              <span className="schedCost">
+                {inEth
+                  ? ethUsd
+                    ? `${eth(PUBLIC_PRICE, ethUsd)} ETH`
+                    : "… ETH"
+                  : `$${PUBLIC_PRICE.toFixed(2)}`}{" "}
+                + gas
               </span>
             </button>
           </div>
 
-          <div className="fineprint">
-            <p>Team: FREE</p>
-            <p>Folklist: FREE + gas</p>
-            <p>
-              Public:{" "}
-              {inEth
-                ? ethUsd
-                  ? `${eth(PUBLIC_PRICE, ethUsd)} ETH`
-                  : "… ETH"
-                : `$${PUBLIC_PRICE.toFixed(2)}`}{" "}
-              + gas
-            </p>
-          </div>
         </section>
       </main>
 
