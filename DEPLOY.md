@@ -10,7 +10,7 @@ and a funded deployer key.
 |---|---|
 | RPC URL | Robinhood Chain endpoint |
 | Deployer key | a private key with gas on that chain |
-| Fee recipient | address that receives the $0.10 platform fee per mint |
+| Fee recipient | optional — leave blank and both the fee and the proceeds go to the deployer |
 | Owner address | who controls the contract afterwards (defaults to deployer) |
 
 Deployment costs roughly **1,897,338 gas** — about 0.0057 ETH at 3 gwei.
@@ -93,10 +93,18 @@ Connect as the owner, then:
 The contract enforces all of this. Nothing can mint early or underpay by
 calling the contract directly.
 
-## After the sale
+## Where the money goes
 
-`withdraw(address)` sends the proceeds anywhere the owner chooses. Platform
-fees are forwarded per mint and never mix with proceeds.
+Every mint is `price + platform fee`, and both halves end up with you:
+
+- **Platform fee** is forwarded the moment someone mints, to `FEE_RECIPIENT`.
+  Leave that blank and it goes to the deployer.
+- **Sale price** accumulates in the contract until the owner calls
+  `withdraw(address)`, which sweeps the balance anywhere you choose.
+
+Keeping them separate means `withdraw()` only ever moves sale proceeds, so a
+withdrawal can never accidentally claw back fees already paid out. To split
+the revenue later, change the fee recipient from `/admin`.
 
 ## Known gaps
 

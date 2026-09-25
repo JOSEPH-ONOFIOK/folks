@@ -18,7 +18,8 @@
     "contracts:test-withdraw": "node scripts/test-withdraw.cjs",
     "deploy": "node scripts/deploy.cjs",
     "deploy:dry": "DRY_RUN=1 node scripts/deploy.cjs",
-    "contracts:test-deployed": "node scripts/test-deployed.cjs"
+    "contracts:test-deployed": "node scripts/test-deployed.cjs",
+    "contracts:test-revenue": "node scripts/test-revenue.cjs"
   },
   "dependencies": {
     "ethers": "^6.17.0",

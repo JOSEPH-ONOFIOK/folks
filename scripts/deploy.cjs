@@ -21,7 +21,8 @@ function need(name) {
   const RPC = need("DEPLOY_RPC_URL");
   const KEY = need("DEPLOY_PRIVATE_KEY");
   const OWNER = process.env.OWNER_ADDRESS || "";
-  const FEE_RECIPIENT = need("FEE_RECIPIENT");
+  // Defaults to the deployer, so all mint revenue lands in one place.
+  const FEE_RECIPIENT = process.env.FEE_RECIPIENT || "";
 
   // Prices in ETH. Folklist is free; public and the fee are set from the
   // drop plan and can be changed later from the admin panel.
@@ -33,6 +34,7 @@ function need(name) {
   const provider = new ethers.JsonRpcProvider(RPC);
   const wallet = new ethers.Wallet(KEY, provider);
   const owner = OWNER || wallet.address;
+  const feeTo = FEE_RECIPIENT || wallet.address;
 
   const net = await provider.getNetwork();
   const balance = await provider.getBalance(wallet.address);
@@ -41,7 +43,8 @@ function need(name) {
   console.log("deployer      :", wallet.address);
   console.log("balance       :", ethers.formatEther(balance), "ETH");
   console.log("owner         :", owner);
-  console.log("fee recipient :", FEE_RECIPIENT);
+  console.log("fee recipient :", feeTo, feeTo === wallet.address ? "(deployer)" : "");
+  console.log("proceeds       : held in the contract, withdraw() sends them to any address");
   console.log("folklist price:", ethers.formatEther(FOLKLIST_PRICE), "ETH");
   console.log("public price  :", ethers.formatEther(PUBLIC_PRICE), "ETH");
   console.log("platform fee  :", ethers.formatEther(PLATFORM_FEE), "ETH");
@@ -55,7 +58,7 @@ function need(name) {
 
   const factory = new ethers.ContractFactory(art.abi, art.bytecode, wallet);
   const estimateOnly = await factory.getDeployTransaction(
-    owner, FOLKLIST_PRICE, PUBLIC_PRICE, PLATFORM_FEE, FEE_RECIPIENT, BASE_URI,
+    owner, FOLKLIST_PRICE, PUBLIC_PRICE, PLATFORM_FEE, feeTo, BASE_URI,
   );
   const gas = await provider.estimateGas({ data: estimateOnly.data });
   const feeData = await provider.getFeeData();
@@ -68,7 +71,7 @@ function need(name) {
   }
 
   console.log("\nDeploying…");
-  const c = await factory.deploy(owner, FOLKLIST_PRICE, PUBLIC_PRICE, PLATFORM_FEE, FEE_RECIPIENT, BASE_URI);
+  const c = await factory.deploy(owner, FOLKLIST_PRICE, PUBLIC_PRICE, PLATFORM_FEE, feeTo, BASE_URI);
   const deployReceipt = await c.deploymentTransaction().wait();
   const address = await c.getAddress();
   console.log("deployed at   :", address, `(block ${deployReceipt.blockNumber})`);
