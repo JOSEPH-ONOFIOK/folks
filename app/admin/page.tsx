@@ -1,11 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CONTRACT_ADDRESS } from "@/lib/contract";
+import {
+  CHAIN_ID,
+  CHAIN_NAME,
+  CONTRACT_ADDRESS,
+  EXPLORER,
+  RPC_URL,
+} from "@/lib/contract";
 import {
   connect as connectWallet,
   currentAccount,
+  currentChainId,
   getProvider,
+  switchChain,
   readyWallets,
 } from "@/lib/wallet";
 
@@ -61,6 +69,7 @@ export default function AdminPage() {
   const [contract, setContract] = useState("");
   const [chain, setChain] = useState<Chain | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [chainId, setChainId] = useState<number | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   // form state
@@ -84,6 +93,21 @@ export default function AdminPage() {
     setContract(CONTRACT_ADDRESS || saved || "");
     void currentAccount().then((a) => a && setAddress(a));
   }, []);
+
+  // The panel reads through the wallet, so a wallet on another chain finds
+  // nothing at this address. Track it and say so plainly.
+  useEffect(() => {
+    if (!address) { setChainId(null); return; }
+    let alive = true;
+    void currentChainId().then((id) => alive && setChainId(id));
+    const provider = getProvider();
+    const onChain = () => { void currentChainId().then((id) => alive && setChainId(id)); };
+    provider?.on?.("chainChanged", onChain);
+    return () => { alive = false; provider?.removeListener?.("chainChanged", onChain); };
+  }, [address]);
+
+  const wrongChain =
+    address !== "" && CHAIN_ID > 0 && chainId !== null && chainId !== CHAIN_ID;
 
   const load = useCallback(async () => {
     if (!contract) return;
@@ -111,7 +135,16 @@ export default function AdminPage() {
       localStorage.setItem("folks.contract", contract);
     } catch (e) {
       setChain(null);
-      setMsg({ kind: "err", text: "Could not read that contract on this network." });
+      // Ask the wallet directly rather than trusting state captured when this
+      // callback was created.
+      const onChain = await currentChainId();
+      setMsg({
+        kind: "err",
+        text:
+          CHAIN_ID > 0 && onChain !== null && onChain !== CHAIN_ID
+            ? `Your wallet is on chain ${onChain}. Switch it to ${CHAIN_NAME} (${CHAIN_ID}) to manage this contract.`
+            : "Could not read that contract on this network.",
+      });
     }
   }, [contract]);
 
@@ -194,6 +227,21 @@ export default function AdminPage() {
           </button>
         )}
       </header>
+
+      {wrongChain && (
+        <div className="netWarn">
+          <span>
+            Wrong network — this contract lives on {CHAIN_NAME} ({CHAIN_ID}),
+            your wallet is on {chainId}.
+          </span>
+          <button
+            className="netBtn"
+            onClick={() => void switchChain(CHAIN_ID, CHAIN_NAME, RPC_URL, EXPLORER)}
+          >
+            Switch
+          </button>
+        </div>
+      )}
 
       <section className="aCard">
         <label className="aLabel">Contract address</label>
