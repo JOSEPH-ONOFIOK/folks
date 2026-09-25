@@ -1,7 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  connect as connectWallet,
+  currentAccount,
+  getProvider,
+  hasWallet,
+  isMobile,
+  metamaskDeepLink,
+} from "@/lib/wallet";
 
 const SUPPLY = 10000;
 const TEAM_RESERVE = 150;
@@ -20,8 +28,8 @@ const ART = [
 // Team mints first, then folklist, then public.
 type Phase = "team" | "folklist" | "public";
 
-// Folklist opens at a fixed instant; the countdown reads from it.
-const MINT_START = new Date("2026-09-23T16:10:00Z");
+// Folklist opens 3pm WAT. WAT is UTC+1 year-round, so that is 14:00 UTC.
+const MINT_START = new Date("2026-09-25T14:00:00Z");
 
 function useEthPrice() {
   const [usd, setUsd] = useState<number | null>(null);
@@ -84,6 +92,7 @@ export default function MintPage() {
   const [address, setAddress] = useState("");
   const [listed, setListed] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
   const cd = useCountdown(MINT_START);
   const ethUsd = useEthPrice();
   // Prices read in ETH first; the swap button flips to USD.
@@ -99,8 +108,7 @@ export default function MintPage() {
 
   // Ask the server whether this wallet is on the folklist. The list itself
   // stays server-side; only the verdict for this one address comes back.
-  async function check(addr: string) {
-    setChecking(true);
+  const check = useCallback(async (addr: string) => {
     try {
       const res = await fetch("/api/check", {
         method: "POST",
@@ -109,13 +117,83 @@ export default function MintPage() {
       });
       const data = (await res.json()) as { status: string };
       setListed(data.status === "eligible");
-      setConnected(true);
     } catch {
       setListed(null);
+    }
+  }, []);
+
+  const adopt = useCallback(
+    (addr: string) => {
+      setAddress(addr);
+      setConnected(true);
+      void check(addr);
+    },
+    [check],
+  );
+
+  async function onConnect() {
+    setWalletError(null);
+
+    // No injected wallet: on a phone, hand them into a wallet's own browser;
+    // on desktop, point at the extension.
+    if (!hasWallet()) {
+      if (isMobile()) {
+        window.location.href = metamaskDeepLink();
+        return;
+      }
+      setWalletError("No wallet found. Install MetaMask or open this page in your wallet's browser.");
+      return;
+    }
+
+    setChecking(true);
+    try {
+      const addr = await connectWallet();
+      if (addr) adopt(addr);
+      else setWalletError("No account returned. Unlock your wallet and try again.");
+    } catch (err) {
+      const code = (err as { code?: number })?.code;
+      // 4001 is the user rejecting the prompt; that is not an error worth shouting about.
+      setWalletError(code === 4001 ? null : "Could not connect. Try again.");
     } finally {
       setChecking(false);
     }
   }
+
+  function disconnect() {
+    setConnected(false);
+    setListed(null);
+    setAddress("");
+    setWalletError(null);
+  }
+
+  // Restore an already-authorised session, and follow the wallet if the
+  // visitor switches or locks their account.
+  useEffect(() => {
+    let alive = true;
+    void currentAccount().then((addr) => {
+      if (alive && addr) adopt(addr);
+    });
+
+    const provider = getProvider();
+    if (!provider?.on) return () => { alive = false; };
+
+    const onAccounts = (...args: never[]) => {
+      const accounts = args[0] as unknown as string[];
+      if (!accounts || accounts.length === 0) {
+        setConnected(false);
+        setListed(null);
+        setAddress("");
+      } else {
+        adopt(accounts[0]);
+      }
+    };
+
+    provider.on("accountsChanged", onAccounts);
+    return () => {
+      alive = false;
+      provider.removeListener?.("accountsChanged", onAccounts);
+    };
+  }, [adopt]);
 
   // Cycle the hero art on its own. Hovering pauses it; picking a
   // thumbnail hands control to the viewer for good.
@@ -155,37 +233,21 @@ export default function MintPage() {
             <button
               className="connectBtn on"
               type="button"
-              onClick={() => {
-                setConnected(false);
-                setListed(null);
-                setAddress("");
-              }}
+              onClick={disconnect}
               title="Disconnect"
             >
               <span className={`wDot ${listed ? "ok" : "no"}`} />
               {short(address)}
             </button>
           ) : (
-            <form
-              className="connectForm"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (address.trim()) check(address.trim());
-              }}
+            <button
+              className="connectBtn"
+              type="button"
+              onClick={onConnect}
+              disabled={checking}
             >
-              <input
-                className="addrInput"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Paste wallet address"
-                spellCheck={false}
-                autoComplete="off"
-                aria-label="Wallet address"
-              />
-              <button className="connectBtn" type="submit" disabled={checking}>
-                {checking ? "CHECKING…" : "CONNECT WALLET"}
-              </button>
-            </form>
+              {checking ? "CONNECTING…" : "CONNECT WALLET"}
+            </button>
           )}
 
         <div className="countdown">
@@ -283,7 +345,7 @@ export default function MintPage() {
                 ? "Reserved. Minted by the team, not open to the public."
                 : phase === "folklist"
                   ? !connected
-                    ? "Opens 4:10pm UTC · Connect to check eligibility."
+                    ? "Opens 3pm WAT · Connect to check eligibility."
                     : eligible
                       ? "You're eligible. Mint is open."
                       : "This wallet isn't on the folklist. You can mint in the public phase."
@@ -338,20 +400,18 @@ export default function MintPage() {
                   <button
                     className="mintBtn"
                     type="button"
-                    disabled={connected && !eligible}
+                    disabled={(connected && !eligible) || checking}
                     onClick={() => {
-                      if (!connected) {
-                        document
-                          .querySelector<HTMLInputElement>(".addrInput")
-                          ?.focus();
-                      }
+                      if (!connected) void onConnect();
                     }}
                   >
-                    {!connected
-                      ? "CONNECT WALLET"
-                      : eligible
-                        ? "MINT"
-                        : "NOT ELIGIBLE"}
+                    {checking
+                      ? "CONNECTING…"
+                      : !connected
+                        ? "CONNECT WALLET"
+                        : eligible
+                          ? "MINT"
+                          : "NOT ELIGIBLE"}
                   </button>
 
                   {connected && (
@@ -360,6 +420,8 @@ export default function MintPage() {
                     </span>
                   )}
                 </div>
+
+                {walletError && <p className="walletErr">{walletError}</p>}
 
                 <p className="totalLine">
                   {qty} Folk{qty > 1 ? "s" : ""} ={" "}
@@ -430,7 +492,7 @@ export default function MintPage() {
                   FOLKLIST <span className="pill">Whitelist</span>
                 </span>
                 <span className="schedWhen">
-                  Opens 4:10pm UTC · Connect to check eligibility
+                  Opens 3pm WAT · Connect to check eligibility
                 </span>
               </span>
               <span className="schedCost">FREE + gas</span>

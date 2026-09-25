@@ -206,7 +206,9 @@ h1 {
 .connectBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  min-height: 44px;
   background: var(--accent);
   color: #06203f;
   border: 1px solid transparent;
@@ -240,26 +242,12 @@ h1 {
 
 .wDot.no { background: var(--no); }
 
-.connectForm {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
-.addrInput {
-  width: 210px;
-  background: #0e0e10;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 12px;
-  color: var(--fg);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  outline: none;
-}
 
-.addrInput:focus { border-color: var(--accent); }
-.addrInput::placeholder { color: #55555c; font-family: inherit; }
+
+
+
+
 
 .connectBtn:disabled { opacity: 0.6; cursor: default; }
 
@@ -346,6 +334,10 @@ h1 {
 }
 
 /* artwork */
+.artCol { min-width: 0; }
+
+.mintCol { min-width: 0; }
+
 .artFrame {
   border-radius: 16px;
   overflow: hidden;
@@ -355,7 +347,9 @@ h1 {
 }
 
 .artImg {
+  display: block;
   width: 100%;
+  max-width: 100%;
   height: auto;
   animation: artFade 0.25s ease;
 }
@@ -384,7 +378,7 @@ h1 {
   transition: opacity 0.15s ease, border-color 0.15s ease;
 }
 
-.thumb img { width: 100%; height: auto; display: block; }
+.thumb img { width: 100%; max-width: 100%; height: auto; display: block; }
 .thumb:hover { opacity: 0.85; }
 .thumb.on { opacity: 1; border-color: var(--accent); }
 
@@ -651,6 +645,14 @@ h1 {
   cursor: not-allowed;
 }
 
+.walletErr {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--no);
+}
+
 .totalLine {
   margin: 14px 0 0;
   text-align: center;
@@ -873,4 +875,36 @@ h1 {
   .cols { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .topbar { gap: 16px; }
   .countdown { width: 100%; justify-content: space-between; }
+  .headRight { width: 100%; }
+  .connectBtn { width: 100%; }
+}
+
+@media (max-width: 560px) {
+  .mintPage { padding: 20px 16px 56px; }
+
+  /* Four boxes plus gaps must fit the viewport, so let them shrink. */
+  .cdBoxes { flex: 1; gap: 6px; }
+  .cdBox { min-width: 0; flex: 1; padding: 7px 4px; }
+  .cdBox b { font-size: 16px; }
+  .countdown { gap: 10px; }
+  .cdLabel { font-size: 10px; letter-spacing: 0.1em; }
+
+  .brandName { font-size: 19px; }
+
+  .panel { padding: 18px; }
+  .panelTitle { font-size: 16px; }
+
+  /* Five thumbnails at phone width are unreadably small. */
+  .thumbs { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .thumb:nth-child(5) { display: none; }
+
+  .footInner { flex-direction: column; align-items: flex-start; gap: 10px; }
+
+  .actionRow { flex-wrap: wrap; }
+  .elig { width: 100%; text-align: center; }
+}
+
+@media (max-width: 380px) {
+  .cdBox b { font-size: 15px; }
+  .cdBox span { font-size: 8px; }
 }
